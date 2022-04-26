@@ -8,6 +8,8 @@ poetry install
 
 run
 poetry run python ./forest_cover_type/runner.py
+or just
+poetry run forest_cover_type
 
 tests
 poetry run pytest --durations=0

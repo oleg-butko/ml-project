@@ -124,3 +124,9 @@ dmypy.json
 
 # Additional ignore
 .idea
+
+# new
+FarMenu.ini
+data/
+
+
