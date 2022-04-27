@@ -6,8 +6,8 @@ import pandas as pd
 
 
 def load_data():
-    print("load_data", os.getcwd())
-    print("pd.__version__", pd.__version__)
+    # print("load_data", os.getcwd())
+    # print("pd.__version__", pd.__version__)
     PATH = "./data/"
     df = pd.read_csv(PATH + "train.csv")
     print(df.head(1))

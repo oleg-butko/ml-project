@@ -14,7 +14,6 @@ classifiers = []
 
 [tool.poetry.dependencies]
 python = "^3.8"
-requests = "^2.22.0"
 loguru = "^0.5.3"
 pytest-integration = "0.2.2"
 pandas = "^1.4.2"
