@@ -14,6 +14,14 @@ from forest_cover_type.train import train_v1
 from forest_cover_type.predict import predict_v1
 from forest_cover_type.report import kaggle_utils
 
+# globals for debugging only(!) in qtconsole
+# these are being reset after code changes bc of autoreload
+global processed, classifiers, X_test, predictions_df
+processed = None
+classifiers = None
+X_test = None
+predictions_df = None
+
 
 def autoreload():
     """For jupyter qtconsole to autoreload the changed module"""
@@ -23,10 +31,12 @@ def autoreload():
 
 def run():
     """Basic entry point."""
+    global processed, classifiers, X_test, predictions_df
     print("preprocessing")
     processed = preprocessing_v1.run()
     print("train")
     classifiers = train_v1.run(processed["train_dataframes"])
+    sys.exit()
     assert len(classifiers.items()) == 3
     print("predict")
     X_test = processed["test_dataframe"]
