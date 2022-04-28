@@ -126,8 +126,10 @@ dmypy.json
 .idea
 
 # new
-FarMenu.ini
 data/
+.vscode/
 sub.csv
+FarMenu.ini
+
 
 

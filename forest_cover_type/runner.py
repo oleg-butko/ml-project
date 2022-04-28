@@ -15,6 +15,12 @@ from forest_cover_type.predict import predict_v1
 from forest_cover_type.report import kaggle_utils
 
 
+def autoreload():
+    """For jupyter qtconsole to autoreload the changed module"""
+    get_ipython().run_line_magic("load_ext", "autoreload")  # type:ignore
+    get_ipython().run_line_magic("autoreload", "2")  # type:ignore
+
+
 def run():
     """Basic entry point."""
     print("preprocessing")
