@@ -1,16 +1,31 @@
 import sys
-from loguru import logger  # type:ignore
-from forest_cover_type.package_one import module_one
 import argparse, os
-import pandas as pd
+from loguru import logger  # type:ignore
+
+# fix to run debugger in vscode when current dir is not the same as in terminal
+curdir = os.getcwd()
+print("getcwd:", curdir)
+add_dir = os.path.abspath(os.path.join(os.getcwd(), "010", "ml-project"))
+sys.path.insert(0, os.path.abspath(add_dir))
+
+# from forest_cover_type.package_one import module_one
+from forest_cover_type.preprocessing import preprocessing_v1
+from forest_cover_type.train import train_v1
+from forest_cover_type.predict import predict_v1
+from forest_cover_type.report import kaggle_utils
 
 
-def load_data():
-    # print("load_data", os.getcwd())
-    # print("pd.__version__", pd.__version__)
-    PATH = "./data/"
-    df = pd.read_csv(PATH + "train.csv")
-    print(df.head(1))
+def run():
+    """Basic entry point."""
+    print("preprocessing")
+    processed = preprocessing_v1.run()
+    print("train")
+    classifiers = train_v1.run(processed["train_dataframes"])
+    assert len(classifiers.items()) == 3
+    print("predict")
+    X_test = processed["test_dataframe"]
+    predictions_df = predict_v1.run(classifiers, X_test, processed["sub_dataframe"])
+    kaggle_utils.create_sub_file(predictions_df)
 
 
 def step1():
@@ -22,20 +37,5 @@ def step1():
     # some_function(args.target, end=args.end)
 
 
-def main(args):
-    """main() will be run if you run this script directly"""
-    x = 2
-    y = 7
-    print("main")
-    print(module_one.add(x, y))  # -> 9
-    print(module_one.multiply(x, y))  # -> 14
-
-
-def run():
-    """Entry point for the runnable script."""
-    sys.exit(main(sys.argv[1:]))
-
-
 if __name__ == "__main__":
-    """main calls run()."""
     run()

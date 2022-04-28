@@ -128,5 +128,6 @@ dmypy.json
 # new
 FarMenu.ini
 data/
+sub.csv
 
 

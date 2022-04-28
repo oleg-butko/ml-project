@@ -3,6 +3,12 @@
 I have tried a couple templates and chose to go with this one because it was pretty simple.
 [Python Project Template](https://github.com/MislavJaksic/Python-Project-Template)
 
+## Notes
+
+1. I took this [very simple notebook](https://www.kaggle.com/code/shouldnotbehere/two-models-random-forests) 
+as a base to make a simple working structure with 4 steps: preprocessing, train, predict, report.
+
+
 ### Some basic commands:
 
 ```
@@ -29,7 +35,8 @@ in shell: python -m cProfile forest_cover_type/runner.py
 ```
 
 
-## DONE
+
+## Done
 
 1. Use the [Forest train dataset](https://www.kaggle.com/competitions/forest-cover-type-prediction). You will solve the task of forest cover type prediction and compete with other participants. **(necessary condition, 0 points for the whole homework if not done)**
 2. Format your homework as a Python package. Use an [src layout](https://blog.ionelmc.ro/2014/05/25/python-packaging/#the-structure) or choose some other layout that seems reasonable to you, explain your choice in the README file. Don't use Jupyter Notebooks for this homework. Instead, write your code in .py files. **(necessary condition, 0 points for the whole homework if not done)**

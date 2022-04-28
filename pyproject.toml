@@ -13,10 +13,12 @@ keywords = []
 classifiers = []
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = ">= 3.8, < 3.11"
 loguru = "^0.5.3"
 pytest-integration = "0.2.2"
 pandas = "^1.4.2"
+scipy = "1.8.0"
+scikit-learn = "^1.0.2"
 
 [tool.poetry.dev-dependencies]
 pytest-cov = "^2.8.1"
