@@ -28,7 +28,8 @@ sphinx = "^2.3.1"
 click = "^8.1.0"
 
 [tool.poetry.scripts]
-main = "forest_cover_type.runner:run"
+# run the full cycle command to create the kaggle submission file with default settings.py
+run = "forest_cover_type.runner:run"
 load_data = "forest_cover_type.runner:load_data"
 step1 = "forest_cover_type.runner:step1"
 

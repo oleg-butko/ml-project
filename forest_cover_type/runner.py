@@ -36,7 +36,7 @@ def run():
     processed = preprocessing_v1.run()
     print("train")
     classifiers = train_v1.run(processed["train_dataframes"])
-    sys.exit()
+    # sys.exit()
     assert len(classifiers.items()) == 3
     print("predict")
     X_test = processed["test_dataframe"]
