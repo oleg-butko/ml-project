@@ -8,10 +8,9 @@ I have tried a couple templates and chose to go with this one because it was pre
 1. I took this [very simple notebook](https://www.kaggle.com/code/shouldnotbehere/two-models-random-forests) 
 as a base to make a simple working structure with 4 steps: preprocessing, train, predict, report.
 2. Steps how to run docs/make.bat from vscode:
-    1. make sure you opened the poetry virtual env (poetry env info)
-    2. in terminal change the current dir to docs
-    3. run make.bat html, the result should be in docs/build/html
-
+    1. Make sure you opened the poetry virtual env (poetry env info)
+    2. In terminal change the current dir to docs
+    3. Run make.bat html, the result should be in docs/build/html
 
 
 ### Some basic commands:
