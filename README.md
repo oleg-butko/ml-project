@@ -28,16 +28,11 @@ as a base to make a simple working structure with 4 steps: preprocessing, train,
 ```
 poetry install
 
-run
-poetry run python ./forest_cover_type/runner.py
-or just
-poetry run forest_cover_type
-
 tests
 poetry run pytest --durations=0
 poetry run pytest --cov=forest_cover_type --cov-report=html tests
 
-linter
+formatter
 poetry run black .
 
 build

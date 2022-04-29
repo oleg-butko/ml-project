@@ -5,7 +5,7 @@ import click
 from loguru import logger  # type:ignore
 
 # fix to run debugger in vscode when current dir is not the same as in terminal
-curdir = os.getcwd()
+# curdir = os.getcwd()
 # print("getcwd:", curdir)
 # add_dir = os.path.abspath(os.path.join(os.getcwd(), "010", "ml-project"))
 # sys.path.insert(0, os.path.abspath(add_dir))
@@ -44,8 +44,14 @@ class dotdict(dict):
 @click.option(
     "-d",
     "--dataset_path",
-    default="data",
+    default="data/only2krows",  # "data",
     type=click.Path(exists=True, dir_okay=True, path_type=Path),
+)
+@click.option(
+    "-t",
+    "--train_cfg",
+    default=None,
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
 )
 @click.option("-a", "--autoreload", is_flag=True, default=False, help="Enable autoreload for qtconsole")
 def run(**opts):
@@ -58,7 +64,6 @@ def run(**opts):
         if not item.startswith("__") and not item.endswith("__")
     }
     settings_obj.update(opts)
-    settings_obj.update(opts)
     settings_obj = dotdict(settings_obj)
     if opts["autoreload"]:
         autoreload()
@@ -66,12 +71,11 @@ def run(**opts):
     print("preprocessing")
     processed = preprocessing_v1.run(settings_obj)
     print("train")
-    classifiers = train_v1.run(processed["train_dataframes"])
+    classifiers = train_v1.run(settings_obj, processed["train_dataframes"])
     # sys.exit()
-    assert len(classifiers.items()) == 3
     print("predict")
     X_test = processed["test_dataframe"]
-    predictions_df = predict_v1.run(classifiers, X_test, processed["sub_dataframe"])
+    predictions_df = predict_v1.run(settings_obj, classifiers, X_test, processed["sub_dataframe"])
     kaggle_utils.create_sub_file(predictions_df)
 
 
