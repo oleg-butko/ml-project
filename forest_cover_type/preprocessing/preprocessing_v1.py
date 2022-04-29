@@ -6,28 +6,30 @@
     encoding the categorical data
     feature finding and scaling
 """
-import os
+import os, sys
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import normalize
-from forest_cover_type import settings
 from forest_cover_type.package_two import module_two
 
 
-def run():
-    if os.path.isfile(settings.PATH + "train.csv"):
-        df_train = pd.read_csv(settings.PATH + "train.csv")
-        df_test = pd.read_csv(settings.PATH + "test.csv")
-    elif os.path.isfile(settings.PATH_2 + "train.csv"):
-        df_train = pd.read_csv(settings.PATH_2 + "train.csv")
-        df_test = pd.read_csv(settings.PATH_2 + "test.csv")
-    print(df_train.shape)
-    print(df_test.shape)
+def run(settings):
+    path = os.path.join(settings.dataset_path, "train.csv")
+    if os.path.isfile(path):
+        df_train = pd.read_csv(path)
+    else:
+        raise FileNotFoundError(path)
+    path = os.path.join(settings.dataset_path, "test.csv")
+    if os.path.isfile(path):
+        df_test = pd.read_csv(path)
+    else:
+        raise FileNotFoundError(path)
+    print("df_train.shape, df_test.shape")
+    print(df_train.shape, df_test.shape)
     assert df_train.isna().sum().sum() == 0
     assert df_test.isna().sum().sum() == 0
     # target Cover_Type
     # train.Cover_Type.unique() # 1..7
-
     cols_to_normalize = [
         "Aspect",
         "Slope",

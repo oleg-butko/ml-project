@@ -1,11 +1,15 @@
-import numpy as np
+# import numpy as np
 
-filename = "text.txt"
+# can be set from CLI
+# default value is part of CLI
+dataset_path = None
+
+# no CLI
 SEED = 0
 submission_fn = "sub.csv"
-PATH = "../ml-project/data/"
-PATH_2 = "./010/ml-project/data/"
+# PATH_2 = "./010/ml-project/data/"
 
+"""
 np.set_printoptions(
     precision=3,
     suppress=True,
@@ -13,4 +17,5 @@ np.set_printoptions(
     threshold=1000,
     formatter=dict(float_kind=lambda x: "%6.3f" % x),
 )
+"""
 

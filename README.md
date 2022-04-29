@@ -11,6 +11,16 @@ as a base to make a simple working structure with 4 steps: preprocessing, train,
     1. Make sure you opened the poetry virtual env (poetry env info)
     2. In terminal change the current dir to docs
     3. Run make.bat html, the result should be in docs/build/html
+3. How to use qtconsole:
+    1. poetry shell
+    2. In the shell: jupyter-qtconsole.exe --style monokai --no-confirm-exit
+    3. In the qtconsole: %run forest_cover_type/runner.py
+4. Using CLI:
+    1. qtconsole use:
+     `%run forest_cover_type/runner.py -d data/only2krows`
+     `%run forest_cover_type/runner.py -a`
+    2. poetry use:
+    `poetry run run -d data/only2krows`
 
 
 ### Some basic commands:
