@@ -27,6 +27,7 @@ pytest = "^7.1.2"
 jinja2 = "<3.1"
 sphinx = "2.4.5"
 click = "^8.1.0"
+mypy = "^0.950"
 
 [tool.poetry.scripts]
 # run the full cycle command to create the kaggle submission file with default settings.py
