@@ -64,6 +64,7 @@ def run(**opts):
         if not item.startswith("__") and not item.endswith("__")
     }
     settings_obj.update(opts)
+    # print("runner.py: settings_obj", settings_obj)
     settings_obj = dotdict(settings_obj)
     if opts["autoreload"]:
         autoreload()
