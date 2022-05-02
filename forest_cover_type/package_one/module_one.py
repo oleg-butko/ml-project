@@ -3,8 +3,8 @@
 """
 from typing import ClassVar
 
-from forest_cover_type import settings
-from forest_cover_type.package_two import module_two
+from . import settings
+from ..package_two import module_two
 
 
 def get_setting():

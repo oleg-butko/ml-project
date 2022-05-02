@@ -1,4 +1,4 @@
-﻿from forest_cover_type import settings
+﻿from .. import settings
 
 
 def create_sub_file(df):

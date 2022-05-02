@@ -10,11 +10,11 @@ from loguru import logger  # type:ignore
 # add_dir = os.path.abspath(os.path.join(os.getcwd(), "010", "ml-project"))
 # sys.path.insert(0, os.path.abspath(add_dir))
 
-from forest_cover_type import settings
-from forest_cover_type.preprocessing import preprocessing_v1
-from forest_cover_type.train import train_v1
-from forest_cover_type.predict import predict_v1
-from forest_cover_type.report import kaggle_utils
+from . import settings
+from .preprocessing import preprocessing_v1
+from .train import train_v1
+from .predict import predict_v1
+from .report import kaggle_utils
 
 # globals for debugging only(!) in qtconsole
 # these are being reset after code changes bc of autoreload

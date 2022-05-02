@@ -10,7 +10,7 @@ import os, sys
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import normalize
-from forest_cover_type.package_two import module_two
+from ..package_two import module_two
 
 
 def run(settings):
