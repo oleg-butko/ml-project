@@ -1,6 +1,5 @@
 ﻿import sys, configparser, distutils
 from pathlib import Path
-from wsgiref import validate
 from joblib import dump, load
 import click
 from sklearn import ensemble

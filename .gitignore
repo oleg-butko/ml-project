@@ -130,6 +130,7 @@ data/
 .vscode/
 sub.csv
 FarMenu.ini
+mlruns
 
 
 
