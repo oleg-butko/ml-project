@@ -18,9 +18,11 @@ as a base to make a simple working structure with 4 steps: preprocessing, train,
 4. Using CLI:
     1. qtconsole use:
      `%run forest_cover_type/runner.py -d data/only2krows`
+
      `%run forest_cover_type/runner.py -a`
     2. poetry use:
     `poetry run run -d data/only2krows`
+5. When adding mlflow on Windows OS there was the error with pywin32 package. The solution I found was to add pywin32 first with `poetry add pywin32 --optional` and then `poetry add mlflow`.
 
 
 ### Some basic commands:

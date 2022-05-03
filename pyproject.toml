@@ -19,6 +19,8 @@ pytest-integration = "0.2.2"
 pandas = "^1.4.2"
 scipy = "1.8.0"
 scikit-learn = "^1.0.2"
+mlflow = "^1.25.1"
+pywin32 = {version = "^304", optional = true}
 
 [tool.poetry.dev-dependencies]
 pytest-cov = "^2.8.1"

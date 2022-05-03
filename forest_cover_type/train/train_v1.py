@@ -3,6 +3,8 @@ from pathlib import Path
 from joblib import dump, load
 import click
 from sklearn import ensemble
+import mlflow
+import mlflow.sklearn
 
 
 def run(settings, dataframes):
