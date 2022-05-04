@@ -13,7 +13,7 @@ def largest_index(inlist):
     return largest_index
 
 
-def run(settings, classifiers, test_df, sub_df):
+def run(settings, classifiers, test_df, sub_df=None):
     clf = classifiers["clf"]
     y_pred = clf.predict_proba(test_df)
     if settings.use_booster:
@@ -25,5 +25,8 @@ def run(settings, classifiers, test_df, sub_df):
         y_pred[:, 2:4] += y_pred_3_4_6[:, 0:2]
         y_pred[:, 5] += y_pred_3_4_6[:, 2]
     y_pred = y_pred.argsort(axis=1)[:, -1] + 1
-    predictions_df = pd.DataFrame(np.column_stack((sub_df.values, y_pred)), columns=["Id", "Cover_Type"])
+    if sub_df is not None:
+        predictions_df = pd.DataFrame(np.column_stack((sub_df.values, y_pred)), columns=["Id", "Cover_Type"])
+    else:
+        predictions_df = pd.DataFrame((y_pred), columns=["Cover_Type"])
     return predictions_df

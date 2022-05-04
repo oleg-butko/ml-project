@@ -7,7 +7,7 @@ dataset_path = None
 # no CLI
 SEED = 0
 submission_fn = "sub.csv"
-# PATH_2 = "./010/ml-project/data/"
+create_submission_file = False
 
 """
 np.set_printoptions(

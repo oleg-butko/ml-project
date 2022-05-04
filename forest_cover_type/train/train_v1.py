@@ -3,15 +3,13 @@ from pathlib import Path
 from joblib import dump, load
 import click
 from sklearn import ensemble
-import mlflow
-import mlflow.sklearn
 
 
 def run(settings, dataframes):
     assert len(dataframes) == 3
     # defaults, can be overwritten by train.ini
     n_jobs = -1
-    clf_n_estimators = 100
+    clf_n_estimators = settings.clf_n_estimators if settings.clf_n_estimators else 100
     use_booster = False
     booster_n_estimators_1 = 200
     booster_n_estimators_2 = 200
@@ -39,14 +37,15 @@ def run(settings, dataframes):
         booster_n_estimators_1 = int(config.get("Booster", "n_estimators_1", fallback=booster_n_estimators_1))
         booster_n_estimators_2 = int(config.get("Booster", "n_estimators_2", fallback=booster_n_estimators_2))
 
-    clf = ensemble.ExtraTreesClassifier(n_estimators=100, n_jobs=n_jobs, random_state=random_state)
-    X_train, y = dataframes[0]
-
+    clf = ensemble.ExtraTreesClassifier(
+        n_estimators=clf_n_estimators, max_depth=6, n_jobs=n_jobs, random_state=random_state
+    )
     if not use_booster:
         if load_if_exists and model_path.is_file() and model_path.exists():
             clf = load(model_path)
             print("Loaded model from path:", model_path)
 
+    X_train, y = dataframes[0]
     clf.fit(X_train, y)
 
     if use_booster:
