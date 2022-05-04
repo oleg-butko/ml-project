@@ -1,7 +1,7 @@
 ﻿import sys, configparser, distutils
 from pathlib import Path
 from joblib import dump, load
-import click
+from loguru import logger  # type:ignore
 from sklearn import ensemble
 
 
@@ -43,7 +43,7 @@ def run(settings, dataframes):
     if not use_booster:
         if load_if_exists and model_path.is_file() and model_path.exists():
             clf = load(model_path)
-            print("Loaded model from path:", model_path)
+            logger.info(f"Loaded model from path: {model_path}")
 
     X_train, y = dataframes[0]
     clf.fit(X_train, y)
@@ -67,7 +67,7 @@ def run(settings, dataframes):
             else:
                 dump(clf, model_path)
                 if model_path.is_file() and model_path.exists():
-                    click.echo(f"Model was saved to: {model_path}")
+                    logger.info(f"Model was saved to: {model_path}")
                 else:
-                    click.echo(f"Error while saving model with path: {model_path}")
+                    logger.error(f"Error while saving model with path: {model_path}")
         return {"clf": clf}

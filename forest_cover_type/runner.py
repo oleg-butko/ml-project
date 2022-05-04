@@ -18,6 +18,7 @@ except ModuleNotFoundError:
 
 
 from . import settings as settings_py
+from . import __version__
 from .preprocessing import preprocessing_v1
 from .train import train_v1
 from .predict import predict_v1
@@ -40,6 +41,15 @@ class dotdict(dict):
     __getattr__ = dict.get
     __setattr__ = dict.__setitem__
 
+
+logger_config = {
+    "handlers": [
+        {"sink": sys.stdout, "format": "<green>{module}</green> {message}"},
+        {"sink": "file.log", "format": "{time:YYYY-MM-DD HH:mm:ss} {module} {message}"},
+    ],
+    "extra": {"user": "someone"},
+}
+logger.configure(**logger_config)
 
 # globals for debugging only(!) in qtconsole
 # Warning: autoreload leads to them being reset after code changes
@@ -78,23 +88,21 @@ def run(**opts):
     if use_mlflow:
         mlflow.start_run()
         mlflow.sklearn.autolog(log_models=False, silent=True)
+        mlflow.log_param("version", __version__)
         mlflow.log_param("command_line_arguments", opts)
         mlflow.log_artifact("forest_cover_type/settings.py")
         if settings_obj.train_cfg is not None:
             mlflow.log_artifact(settings_obj.train_cfg)
         mlflow.log_param("settings_obj", settings_obj)
-    click.echo("preprocessing")
     processed = preprocessing_v1.run(settings_obj)
     glob.X_train, glob.y = processed["train_dataframes"][0]
-    click.echo("train")
     settings_obj.use_booster = False
     settings_obj.clf_n_estimators = 5
     classifiers = train_v1.run(settings_obj, processed["train_dataframes"])
-    click.echo("predict")
     predictions_df = predict_v1.run(settings_obj, classifiers, glob.X_train)
     glob.predictions_df = predictions_df
     acc_on_train = accuracy_score(glob.y, predictions_df)
-    click.echo(f"acc_on_train: {acc_on_train}")
+    logger.info(f"acc_on_train: {acc_on_train}")
     mlflow.log_metric("acc_on_train", acc_on_train) if use_mlflow else None
     # sys.exit()
     if settings_obj.create_submission_file:
@@ -102,7 +110,9 @@ def run(**opts):
         predictions_df = predict_v1.run(settings_obj, classifiers, X_test, processed["sub_dataframe"])
         glob.predictions_df = predictions_df
         kaggle_utils.create_sub_file(predictions_df)
-    mlflow.end_run() if use_mlflow else None
+    if use_mlflow:
+        mlflow.log_artifact("file.log")
+        mlflow.end_run()
 
 
 if __name__ == "__main__":

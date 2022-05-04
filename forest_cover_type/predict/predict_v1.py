@@ -1,5 +1,6 @@
 ﻿import numpy as np
 import pandas as pd
+from loguru import logger  # type:ignore
 
 
 def largest_index(inlist):
@@ -14,6 +15,7 @@ def largest_index(inlist):
 
 
 def run(settings, classifiers, test_df, sub_df=None):
+    logger.info("predict")
     clf = classifiers["clf"]
     y_pred = clf.predict_proba(test_df)
     if settings.use_booster:

@@ -9,11 +9,13 @@
 import os, sys
 import numpy as np
 import pandas as pd
+from loguru import logger  # type:ignore
 from sklearn.preprocessing import normalize
 from ..package_two import module_two
 
 
 def run(settings):
+    logger.info("preprocessing")
     path = os.path.join(settings.dataset_path, "train.csv")
     if os.path.isfile(path):
         df_train = pd.read_csv(path)
