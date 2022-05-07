@@ -76,7 +76,7 @@ glob = dotdict({})
 @click.option(
     "-d",
     "--dataset_path",
-    default="data/o1nly2krows",  # "data",
+    default="data/only2krows",  # "data",
     type=click.Path(exists=True, dir_okay=True, path_type=Path),
 )
 @click.option(
