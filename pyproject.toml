@@ -33,11 +33,7 @@ click = "^8.1.0"
 mypy = "^0.950"
 
 [tool.poetry.scripts]
-# run the full cycle command to create the kaggle submission file with default settings.py
 entry = "forest_cover_type.runner:run"
-load_data = "forest_cover_type.runner:load_data"
-step1 = "forest_cover_type.runner:step1"
-
 
 [build-system]
 requires = ["poetry>=0.12"]
