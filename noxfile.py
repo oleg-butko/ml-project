@@ -50,6 +50,10 @@ def mypy(session: Session) -> None:
 def tests(session: Session) -> None:
     """Run the test suite."""
     args = session.posargs
-    session.run("poetry", "install", "--no-dev", external=True)
+    # Here "--no-dev" is okay and works when using just "nox"
+    # session.run("poetry", "install", "--no-dev", external=True)
+    # But this command doesn't work with "--no-dev"
+    # nox --reuse-existing-virtualenvs --no-install
+    session.run("poetry", "install", external=True)
     install_with_constraints(session, "pytest")
     session.run("pytest", *args)
