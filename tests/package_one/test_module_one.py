@@ -16,10 +16,6 @@ def complex_array():
     yield [x for x in range(5)]
 
 
-def test_get_setting():
-    assert module_one.get_setting() == "text.txt"
-
-
 @pytest.fixture(scope="function")
 def calculator():
     # setup

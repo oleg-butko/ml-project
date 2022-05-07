@@ -21,7 +21,7 @@ as a base to make a simple working structure with 4 steps: preprocessing, train,
 
      `%run forest_cover_type/runner.py -a`
     2. poetry use:
-    `poetry run run -d data/only2krows`
+    `poetry run entry -d data/only2krows`
 5. When adding mlflow on Windows OS there was the error with pywin32 package. The solution I found was to add pywin32 first with `poetry add pywin32 --optional` and then `poetry add mlflow`.
 6. The command `%run forest_cover_type/runner.py` for qtconsole doesn't work now, because of using relative import "ImportError: attempted relative import with no known parent package". The command `%run -m forest_cover_type.runner -d data` works.
 7. MLflow doesn't work when running from qtconsole. But it's not needed there anyway.

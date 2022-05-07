@@ -15,7 +15,6 @@ from ..package_two import module_two
 
 
 def run(settings):
-    logger.info("preprocessing")
     path = os.path.join(settings.dataset_path, "train.csv")
     if os.path.isfile(path):
         df_train = pd.read_csv(path)
@@ -26,8 +25,7 @@ def run(settings):
         df_test = pd.read_csv(path)
     else:
         raise FileNotFoundError(path)
-    print("df_train.shape, df_test.shape")
-    print(df_train.shape, df_test.shape)
+    logger.info(f"df_train.shape: {df_train.shape}, df_test.shape: {df_test.shape}")
     assert df_train.isna().sum().sum() == 0
     assert df_test.isna().sum().sum() == 0
     # target Cover_Type

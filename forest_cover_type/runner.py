@@ -2,6 +2,7 @@ import sys, os
 import traceback
 from pathlib import Path
 import click
+import logging
 from loguru import logger  # type:ignore
 import warnings
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
@@ -34,12 +35,20 @@ def autoreload():
 
 
 class dotdict(dict):
-    """dot.notation access to dictionary attributes
-    to write settings.dataset_path instead of settings["dataset_path"]
+    """dot.notation access to dictionary attributes.
+    Allows to get an attr by settings.dataset_path instead of settings["dataset_path"]
     """
 
     __getattr__ = dict.get
     __setattr__ = dict.__setitem__
+
+
+#
+# loguru init
+#
+class PropagateHandler(logging.Handler):
+    def emit(self, record):
+        logging.getLogger(record.name).handle(record)
 
 
 logger_config = {
@@ -50,19 +59,24 @@ logger_config = {
     "extra": {"user": "someone"},
 }
 logger.configure(**logger_config)
+# when using loguru + pytest it's needed explicit propagation to the standard logger
+# https://github.com/Delgan/loguru/issues/59#issuecomment-466532983
+logger.add(PropagateHandler(), format="{message}")
 
 # globals for debugging only(!) in qtconsole
-# Warning: autoreload leads to them being reset after code changes
+# Warning: autoreload leads to them being reset dynamically after a code change
 global settings_obj, glob
 settings_obj = None
 glob = dotdict({})
 
-
+#
+# Main entry
+#
 @click.command()
 @click.option(
     "-d",
     "--dataset_path",
-    default="data/only2krows",  # "data",
+    default="data/o1nly2krows",  # "data",
     type=click.Path(exists=True, dir_okay=True, path_type=Path),
 )
 @click.option(
@@ -85,7 +99,8 @@ def run(**opts):
     }
     settings_obj.update(opts)
     settings_obj = dotdict(settings_obj)
-    if use_mlflow:
+    if use_mlflow and settings_obj.use_mlflow:
+        logger.info(f"use_mlflow: {use_mlflow}")
         mlflow.start_run()
         mlflow.sklearn.autolog(log_models=False, silent=True)
         mlflow.log_param("version", __version__)
@@ -96,12 +111,10 @@ def run(**opts):
         mlflow.log_param("settings_obj", settings_obj)
     processed = preprocessing_v1.run(settings_obj)
     glob.X_train, glob.y = processed["train_dataframes"][0]
-    settings_obj.use_booster = False
-    settings_obj.clf_n_estimators = 5
     classifiers = train_v1.run(settings_obj, processed["train_dataframes"])
     predictions_df = predict_v1.run(settings_obj, classifiers, glob.X_train)
     glob.predictions_df = predictions_df
-    acc_on_train = accuracy_score(glob.y, predictions_df)
+    acc_on_train = accuracy_score(glob.y, predictions_df).round(5)
     logger.info(f"acc_on_train: {acc_on_train}")
     mlflow.log_metric("acc_on_train", acc_on_train) if use_mlflow else None
     # sys.exit()

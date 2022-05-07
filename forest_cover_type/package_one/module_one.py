@@ -3,12 +3,8 @@
 """
 from typing import ClassVar
 
-from . import settings
+from .. import settings
 from ..package_two import module_two
-
-
-def get_setting():
-    return settings.filename
 
 
 def add(x: int, y: int) -> int:
