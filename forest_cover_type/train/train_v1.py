@@ -16,20 +16,25 @@ def roc_auc_scorer(clf, X, y):
     return roc_auc_score(y_true, y_pred, multi_class="ovr")
 
 
-def get_scorer_for(label):
-    def sum_err_for_label(clf, X, y):
+def get_scorer_for(cls_label):
+    assert cls_label >= 1 and cls_label <= 7
+
+    def sum_err_for_cls_label(clf, X, y):
         y_pred = clf.predict(X)
         cm = confusion_matrix(y, y_pred)
-        # normalaze
+        # normalize
         cm2 = cm.astype("float") / cm.sum(axis=1)[:, np.newaxis]
         # sum percents of predictions errors
-        err_pred_sum = np.sum(cm2[:, label - 1]) - cm2[label - 1, label - 1]
-        # print(f"label: {label}  err_pred_sum: {err_pred_sum}")
+        err_pred_sum = np.sum(cm2[:, cls_label - 1]) - cm2[cls_label - 1, cls_label - 1]
+        # print(f"cls_label: {cls_label}  err_pred_sum: {err_pred_sum}")
         return err_pred_sum
 
-    return sum_err_for_label
+    return sum_err_for_cls_label
 
 
+#
+# %run -m forest_cover_type.runner -t cfg/kfold.ini
+#
 def kfold(settings, dataframes):
     assert len(dataframes) > 0
     random_state = settings.SEED
@@ -45,6 +50,7 @@ def kfold(settings, dataframes):
     tree = DecisionTreeClassifier(max_depth=10, random_state=random_state)
     # https://scikit-learn.org/stable/modules/model_evaluation.html
     scoring = {
+        "f1_macro": "f1_macro",
         "roc_auc": roc_auc_scorer,
         "balanced_acc": "balanced_accuracy",
         "neg_log_loss": "neg_log_loss",
@@ -55,12 +61,14 @@ def kfold(settings, dataframes):
     cv_results = cross_validate(tree, X, y, cv=skf, scoring=scoring, return_train_score=True)
     # print(cv_results.keys())
     # 'fit_time', 'score_time', 'test_roc_auc', 'train_roc_auc', 'test_balanced_acc', 'train_balanced_acc', 'test_neg_log_loss', 'train_neg_log_loss', 'test_label_1_err', 'train_label_1_err', 'test_label_2_err', 'train_label_2_err', 'test_label_3_err', 'train_label_3_err'])
+    print("train_f1_macro", cv_results["train_f1_macro"])
+    print("test_f1_macro", cv_results["test_f1_macro"])
+    print("train_roc_auc", cv_results["train_roc_auc"])
+    print("test_roc_auc", cv_results["test_roc_auc"])
     print("train_label_1_err", cv_results["train_label_1_err"])
     print("test_label_1_err", cv_results["test_label_1_err"])
     print("train_balanced_acc", cv_results["train_balanced_acc"])
     print("test_balanced_acc", cv_results["test_balanced_acc"])
-    print("train_roc_auc", cv_results["train_roc_auc"])
-    print("test_roc_auc", cv_results["test_roc_auc"])
 
 
 def run(settings, dataframes):
