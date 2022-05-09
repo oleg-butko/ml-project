@@ -30,6 +30,7 @@ def run(settings):
     assert df_test.isna().sum().sum() == 0
     # target Cover_Type
     # train.Cover_Type.unique() # 1..7
+    # {2: 860, 5: 641, 1: 499, 6: 179, 7: 125, 3: 107, 4: 40}
     cols_to_normalize = [
         "Aspect",
         "Slope",

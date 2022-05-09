@@ -1,11 +1,9 @@
-import sys, os
-import traceback
+import sys, os, traceback, warnings, logging
 from pathlib import Path
 import click
-import logging
 from loguru import logger  # type:ignore
-import warnings
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.metrics import log_loss, accuracy_score, classification_report, confusion_matrix
+import numpy as np
 
 # Hide warnings from sklearn about deprecation that mlflow shows
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -20,6 +18,7 @@ except ModuleNotFoundError:
 
 from . import settings as settings_py
 from . import __version__
+from . import utils
 from .preprocessing import preprocessing_v1
 from .train import train_v1
 from .predict import predict_v1
@@ -32,6 +31,14 @@ def autoreload():
     """
     get_ipython().run_line_magic("load_ext", "autoreload")  # type:ignore
     get_ipython().run_line_magic("autoreload", "2")  # type:ignore
+    # also set these options for pretty output
+    np.set_printoptions(
+        precision=3,
+        suppress=True,
+        linewidth=115,
+        threshold=1000,
+        formatter=dict(float_kind=lambda x: "%6.3f" % x),
+    )
 
 
 class dotdict(dict):
@@ -51,14 +58,6 @@ class PropagateHandler(logging.Handler):
         logging.getLogger(record.name).handle(record)
 
 
-logger_config = {
-    "handlers": [
-        {"sink": sys.stdout, "format": "<green>{module}</green> {message}"},
-        {"sink": "file.log", "format": "{time:YYYY-MM-DD HH:mm:ss} {module} {message}"},
-    ],
-    "extra": {"user": "someone"},
-}
-logger.configure(**logger_config)
 # when using loguru + pytest it's needed explicit propagation to the standard logger
 # https://github.com/Delgan/loguru/issues/59#issuecomment-466532983
 logger.add(PropagateHandler(), format="{message}")
@@ -91,7 +90,7 @@ def run(**opts):
     if opts["autoreload"]:
         autoreload()
         return
-    global settings_obj, glob
+    global settings_obj, glob  # for debug
     settings_obj = {
         item: getattr(settings_py, item)
         for item in dir(settings_py)
@@ -99,6 +98,9 @@ def run(**opts):
     }
     settings_obj.update(opts)
     settings_obj = dotdict(settings_obj)
+    utils.process_settings(settings_obj)
+    print("settings_obj:", settings_obj)
+
     if use_mlflow and settings_obj.use_mlflow:
         logger.info(f"use_mlflow: {use_mlflow}")
         mlflow.start_run()
@@ -111,13 +113,17 @@ def run(**opts):
         mlflow.log_param("settings_obj", settings_obj)
     processed = preprocessing_v1.run(settings_obj)
     glob.X_train, glob.y = processed["train_dataframes"][0]
-    classifiers = train_v1.run(settings_obj, processed["train_dataframes"])
-    predictions_df = predict_v1.run(settings_obj, classifiers, glob.X_train)
-    glob.predictions_df = predictions_df
-    acc_on_train = accuracy_score(glob.y, predictions_df).round(5)
-    logger.info(f"acc_on_train: {acc_on_train}")
-    mlflow.log_metric("acc_on_train", acc_on_train) if use_mlflow else None
-    # sys.exit()
+    if settings_obj.mode == "kfold":
+        train_v1.kfold(settings_obj, processed["train_dataframes"])
+        # sys.exit()
+    else:
+        classifiers = train_v1.run(settings_obj, processed["train_dataframes"])
+        predictions_df = predict_v1.run(settings_obj, classifiers, glob.X_train)
+        glob.predictions_df = predictions_df
+        acc_on_train = accuracy_score(glob.y, predictions_df).round(5)
+        logger.info(f"acc_on_train: {acc_on_train}")
+        mlflow.log_metric("acc_on_train", acc_on_train) if use_mlflow else None
+        # sys.exit()
     if settings_obj.create_submission_file:
         X_test = processed["test_dataframe"]
         predictions_df = predict_v1.run(settings_obj, classifiers, X_test, processed["sub_dataframe"])
