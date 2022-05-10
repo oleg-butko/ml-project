@@ -58,7 +58,13 @@ def process_settings(settings):
             if section.startswith("run_"):
                 settings["runs"][section] = dotdict({})
                 for key in config[section]:
-                    settings.runs[section][key] = literal_eval(config[section][key])
+                    # print("config[section][key]:", config[section][key])
+                    try:
+                        # try to parse array/dict/etc
+                        settings.runs[section][key] = literal_eval(config[section][key])
+                    except ValueError:
+                        # looks like it's a string
+                        settings.runs[section][key] = config[section][key]
 
         if settings.mode == "kfold" and len(settings.runs.keys()) == 0:
             logger.error(f"kfold config must have [run_N] section")

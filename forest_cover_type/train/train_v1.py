@@ -3,10 +3,10 @@ from joblib import dump, load
 from loguru import logger  # type:ignore
 import numpy as np
 from sklearn import ensemble
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.model_selection import StratifiedKFold, cross_validate
-from sklearn.metrics import log_loss, accuracy_score, roc_auc_score, classification_report
-from sklearn.metrics import make_scorer, confusion_matrix
+from sklearn.metrics import roc_auc_score, confusion_matrix
 from sklearn.preprocessing import OneHotEncoder
 
 use_mlflow = True
@@ -41,12 +41,13 @@ def get_scorer_for(cls_label):
 #
 # %run -m forest_cover_type.runner -t cfg/kfold.ini
 #
-def kfold(settings, dataframes, run_name=None):
+def kfold(settings, dataframes, run_n=None):
     assert len(dataframes) > 0
-    assert run_name is not None
+    assert run_n is not None
     random_state = settings.SEED
     X, y = dataframes[0]
     X, y = X.values, y.values
+    run_name = f"{run_n} {settings.runs[run_n].classifier}"
     logger.info(f"{run_name} kfold, X.shape: {X.shape}, n_splits: {settings.n_splits}")
     skf = StratifiedKFold(n_splits=settings.n_splits, shuffle=True, random_state=random_state)
     # for train_index, test_index in skf.split(X, y):
@@ -54,19 +55,29 @@ def kfold(settings, dataframes, run_name=None):
     #     X_train, X_test = X[train_index], X[test_index]
     #     y_train, y_test = y[train_index], y[test_index]
     #     print("np.unique(y_test):", np.unique(y_test))
-    logger.info(f"DecisionTreeClassifier params: {settings.runs[run_name]}")
-    tree = DecisionTreeClassifier(**(settings.runs[run_name]), random_state=random_state)
+
+    classifier = settings.runs[run_n].classifier
+    del settings.runs[run_n]["classifier"]
+    logger.info(f"  params: {settings.runs[run_n]}")
+    if classifier == "DecisionTreeClassifier":
+        clf = DecisionTreeClassifier(**(settings.runs[run_n]), random_state=random_state)
+    elif classifier == "RandomForestClassifier":
+        clf = RandomForestClassifier(**(settings.runs[run_n]), random_state=random_state)
+    else:
+        logger.error(f"Invalid classifier in: {run_n}")
+        raise ValueError
+
     # https://scikit-learn.org/stable/modules/model_evaluation.html
     scoring = {
         "f1_macro": "f1_macro",
-        "roc_auc": roc_auc_scorer,
         "balanced_acc": "balanced_accuracy",
         "neg_log_loss": "neg_log_loss",
-        "label_1_err": get_scorer_for(1),
-        "label_2_err": get_scorer_for(2),
-        "label_3_err": get_scorer_for(3),
+        "roc_auc": roc_auc_scorer,
     }
-    cv_results = cross_validate(tree, X, y, cv=skf, scoring=scoring, return_train_score=True)
+    for i in range(1, 8):
+        scoring[f"label_{i}_err"] = get_scorer_for(i)
+    # KFold
+    cv_results = cross_validate(clf, X, y, cv=skf, scoring=scoring, return_train_score=True)
     # print(cv_results.keys())
     # 'fit_time', 'score_time', 'test_roc_auc', 'train_roc_auc', 'test_balanced_acc', 'train_balanced_acc', 'test_neg_log_loss', 'train_neg_log_loss', 'test_label_1_err', 'train_label_1_err', 'test_label_2_err', 'train_label_2_err', 'test_label_3_err', 'train_label_3_err'])
     if use_mlflow:
@@ -78,8 +89,9 @@ def kfold(settings, dataframes, run_name=None):
         mlflow.log_metric("test_bal_acc", cv_results["test_balanced_acc"].mean())
         mlflow.log_metric("train_log_loss", cv_results["train_neg_log_loss"].mean())
         mlflow.log_metric("test_log_loss", cv_results["test_neg_log_loss"].mean())
-        # print("train_label_1_err", cv_results["train_label_1_err"].mean())
-        # print("test_label_1_err", cv_results["test_label_1_err"].mean())
+        for i in range(1, 8):
+            mlflow.log_metric(f"train_lab_{i}_err", cv_results[f"train_label_{i}_err"].mean())
+            mlflow.log_metric(f"test_lab_{i}_err", cv_results[f"test_label_{i}_err"].mean())
 
 
 def run(settings, dataframes):

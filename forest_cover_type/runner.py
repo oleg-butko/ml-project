@@ -124,10 +124,11 @@ def run(**opts):
     glob.X_train, glob.y = processed["train_dataframes"][0]
     if settings_obj.mode == "kfold":
         for run_n in settings_obj.runs.keys():
-            nested_run = mlflow.start_run(run_name=run_n, nested=True)
+            run_name = f"{run_n} {settings_obj.runs[run_n].classifier}"
+            nested_run = mlflow.start_run(run_name=run_name, nested=True)
             client.set_tag(run_id=nested_run.info.run_id, key="mlflow.user", value="")
             mlflow.log_param("nested_run", "yes")
-            train_v1.kfold(settings_obj, processed["train_dataframes"], run_name=run_n)
+            train_v1.kfold(settings_obj, processed["train_dataframes"], run_n=run_n)
             mlflow.end_run()
         # sys.exit()
     else:
