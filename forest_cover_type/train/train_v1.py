@@ -9,6 +9,12 @@ from sklearn.metrics import log_loss, accuracy_score, roc_auc_score, classificat
 from sklearn.metrics import make_scorer, confusion_matrix
 from sklearn.preprocessing import OneHotEncoder
 
+use_mlflow = True
+try:
+    import mlflow
+except ModuleNotFoundError:
+    use_mlflow = False
+
 
 def roc_auc_scorer(clf, X, y):
     y_true = OneHotEncoder().fit_transform(y.reshape(-1, 1)).toarray()
@@ -35,19 +41,21 @@ def get_scorer_for(cls_label):
 #
 # %run -m forest_cover_type.runner -t cfg/kfold.ini
 #
-def kfold(settings, dataframes):
+def kfold(settings, dataframes, run_name=None):
     assert len(dataframes) > 0
+    assert run_name is not None
     random_state = settings.SEED
     X, y = dataframes[0]
     X, y = X.values, y.values
-    logger.info(f"kfold, X.shape: {X.shape}, n_splits: {settings.n_splits}")
+    logger.info(f"{run_name} kfold, X.shape: {X.shape}, n_splits: {settings.n_splits}")
     skf = StratifiedKFold(n_splits=settings.n_splits, shuffle=True, random_state=random_state)
     # for train_index, test_index in skf.split(X, y):
     #     print("TRAIN:", len(train_index), "TEST:", len(test_index))
     #     X_train, X_test = X[train_index], X[test_index]
     #     y_train, y_test = y[train_index], y[test_index]
     #     print("np.unique(y_test):", np.unique(y_test))
-    tree = DecisionTreeClassifier(max_depth=10, random_state=random_state)
+    logger.info(f"DecisionTreeClassifier params: {settings.runs[run_name]}")
+    tree = DecisionTreeClassifier(**(settings.runs[run_name]), random_state=random_state)
     # https://scikit-learn.org/stable/modules/model_evaluation.html
     scoring = {
         "f1_macro": "f1_macro",
@@ -61,14 +69,17 @@ def kfold(settings, dataframes):
     cv_results = cross_validate(tree, X, y, cv=skf, scoring=scoring, return_train_score=True)
     # print(cv_results.keys())
     # 'fit_time', 'score_time', 'test_roc_auc', 'train_roc_auc', 'test_balanced_acc', 'train_balanced_acc', 'test_neg_log_loss', 'train_neg_log_loss', 'test_label_1_err', 'train_label_1_err', 'test_label_2_err', 'train_label_2_err', 'test_label_3_err', 'train_label_3_err'])
-    print("train_f1_macro", cv_results["train_f1_macro"])
-    print("test_f1_macro", cv_results["test_f1_macro"])
-    print("train_roc_auc", cv_results["train_roc_auc"])
-    print("test_roc_auc", cv_results["test_roc_auc"])
-    print("train_label_1_err", cv_results["train_label_1_err"])
-    print("test_label_1_err", cv_results["test_label_1_err"])
-    print("train_balanced_acc", cv_results["train_balanced_acc"])
-    print("test_balanced_acc", cv_results["test_balanced_acc"])
+    if use_mlflow:
+        mlflow.log_metric("train_f1_ma", cv_results["train_f1_macro"].mean())
+        mlflow.log_metric("test_f1_ma", cv_results["test_f1_macro"].mean())
+        mlflow.log_metric("train_roc_auc", cv_results["train_roc_auc"].mean())
+        mlflow.log_metric("test_roc_auc", cv_results["test_roc_auc"].mean())
+        mlflow.log_metric("train_bal_acc", cv_results["train_balanced_acc"].mean())
+        mlflow.log_metric("test_bal_acc", cv_results["test_balanced_acc"].mean())
+        mlflow.log_metric("train_log_loss", cv_results["train_neg_log_loss"].mean())
+        mlflow.log_metric("test_log_loss", cv_results["test_neg_log_loss"].mean())
+        # print("train_label_1_err", cv_results["train_label_1_err"].mean())
+        # print("test_label_1_err", cv_results["test_label_1_err"].mean())
 
 
 def run(settings, dataframes):

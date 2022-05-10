@@ -12,6 +12,7 @@ use_mlflow = True
 try:
     import mlflow
     import mlflow.sklearn
+    from mlflow.tracking import MlflowClient
 except ModuleNotFoundError:
     use_mlflow = False
 
@@ -100,21 +101,34 @@ def run(**opts):
     settings_obj = dotdict(settings_obj)
     utils.process_settings(settings_obj)
     print("settings_obj:", settings_obj)
+    # sys.exit()
 
     if use_mlflow and settings_obj.use_mlflow:
-        logger.info(f"use_mlflow: {use_mlflow}")
-        mlflow.start_run()
-        mlflow.sklearn.autolog(log_models=False, silent=True)
+        # https://www.mlflow.org/docs/latest/tracking.html
+        logger.info("mlflow is enabled")
+        mlflow.set_experiment(settings_obj.mode)
+        # mlflow.sklearn.autolog(log_models=False, silent=True) # looks buggy and slow
+        parent_run = mlflow.start_run(run_name="parent_run", description="parent_run description", tags=opts)
+        mlflow.log_param("parent", "yes")
         mlflow.log_param("version", __version__)
         mlflow.log_param("command_line_arguments", opts)
         mlflow.log_artifact("forest_cover_type/settings.py")
+        client = MlflowClient()
+        # https://www.mlflow.org/docs/latest/tracking.html#system-tags
+        client.set_tag(run_id=parent_run.info.run_id, key="mlflow.user", value="")
+        client.set_tag(run_id=parent_run.info.run_id, key="mlflow.source.git.commit", value=__version__)
         if settings_obj.train_cfg is not None:
             mlflow.log_artifact(settings_obj.train_cfg)
         mlflow.log_param("settings_obj", settings_obj)
     processed = preprocessing_v1.run(settings_obj)
     glob.X_train, glob.y = processed["train_dataframes"][0]
     if settings_obj.mode == "kfold":
-        train_v1.kfold(settings_obj, processed["train_dataframes"])
+        for run_n in settings_obj.runs.keys():
+            nested_run = mlflow.start_run(run_name=run_n, nested=True)
+            client.set_tag(run_id=nested_run.info.run_id, key="mlflow.user", value="")
+            mlflow.log_param("nested_run", "yes")
+            train_v1.kfold(settings_obj, processed["train_dataframes"], run_name=run_n)
+            mlflow.end_run()
         # sys.exit()
     else:
         classifiers = train_v1.run(settings_obj, processed["train_dataframes"])
@@ -130,7 +144,8 @@ def run(**opts):
         glob.predictions_df = predictions_df
         kaggle_utils.create_sub_file(predictions_df)
     if use_mlflow:
-        mlflow.log_artifact("file.log")
+        if settings_obj.use_logfile:
+            mlflow.log_artifact("file.log")
         mlflow.end_run()
 
 

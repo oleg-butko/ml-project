@@ -1,7 +1,17 @@
 ﻿import sys, configparser
+from ast import literal_eval
 from distutils.util import strtobool
 from pathlib import Path
 from loguru import logger  # type:ignore
+
+
+class dotdict(dict):
+    """dot.notation access to dictionary attributes.
+    Allows to get an attr by settings.dataset_path instead of settings["dataset_path"]
+    """
+
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
 
 
 def process_settings(settings):
@@ -42,6 +52,17 @@ def process_settings(settings):
         settings.booster_n_estimators_2 = int(
             config.get("Booster", "n_estimators_2", fallback=settings.booster_n_estimators_2)
         )
+
+        settings["runs"] = dotdict({})
+        for section in config.sections():
+            if section.startswith("run_"):
+                settings["runs"][section] = dotdict({})
+                for key in config[section]:
+                    settings.runs[section][key] = literal_eval(config[section][key])
+
+        if settings.mode == "kfold" and len(settings.runs.keys()) == 0:
+            logger.error(f"kfold config must have [run_N] section")
+            assert len(settings.runs.keys()) > 0
 
     if settings.use_logfile:
         logger_config = {
