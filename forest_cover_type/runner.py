@@ -2,7 +2,7 @@ import sys, os, traceback, warnings, logging
 from pathlib import Path
 import click
 from loguru import logger  # type:ignore
-from sklearn.metrics import log_loss, accuracy_score, classification_report, confusion_matrix
+from sklearn.metrics import accuracy_score
 import numpy as np
 
 # Hide warnings from sklearn about deprecation that mlflow shows
@@ -25,9 +25,12 @@ from .train import train_v1
 from .predict import predict_v1
 from .report import kaggle_utils
 
+# Example of correct call from qtconsole:
+# %run -m forest_cover_type.runner -d data/only2krows -t cfg/kfold.ini
+
 
 def autoreload():
-    """For jupyter qtconsole to auto-reload the just changed module.
+    """This enables auto-reload mode for qtconsole to reload module after the source code was changed.
     Example: %run -m forest_cover_type.runner -a
     """
     get_ipython().run_line_magic("load_ext", "autoreload")  # type:ignore
@@ -44,7 +47,7 @@ def autoreload():
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes.
-    Allows to get an attr by settings.dataset_path instead of settings["dataset_path"]
+    Allows to get an attr by settings.attr instead of settings["attr"]
     """
 
     __getattr__ = dict.get
@@ -102,8 +105,9 @@ def run(**opts):
     utils.process_settings(settings_obj)
     print("settings_obj:", settings_obj)
     # sys.exit()
+    settings_obj.use_mlflow = use_mlflow and settings_obj.use_mlflow
 
-    if use_mlflow and settings_obj.use_mlflow:
+    if settings_obj.use_mlflow:
         # https://www.mlflow.org/docs/latest/tracking.html
         logger.info("mlflow is enabled")
         mlflow.set_experiment(settings_obj.mode)
@@ -124,12 +128,14 @@ def run(**opts):
     glob.X_train, glob.y = processed["train_dataframes"][0]
     if settings_obj.mode == "kfold":
         for run_n in settings_obj.runs.keys():
-            run_name = f"{run_n} {settings_obj.runs[run_n].classifier}"
-            nested_run = mlflow.start_run(run_name=run_name, nested=True)
-            client.set_tag(run_id=nested_run.info.run_id, key="mlflow.user", value="")
-            mlflow.log_param("nested_run", "yes")
+            if settings_obj.use_mlflow:
+                run_name = f"{run_n} {settings_obj.runs[run_n].classifier}"
+                nested_run = mlflow.start_run(run_name=run_name, nested=True)
+                client.set_tag(run_id=nested_run.info.run_id, key="mlflow.user", value="")
+                mlflow.log_param("nested_run", "yes")
             train_v1.kfold(settings_obj, processed["train_dataframes"], run_n=run_n)
-            mlflow.end_run()
+            if settings_obj.use_mlflow:
+                mlflow.end_run()
         # sys.exit()
     else:
         classifiers = train_v1.run(settings_obj, processed["train_dataframes"])
@@ -137,35 +143,35 @@ def run(**opts):
         glob.predictions_df = predictions_df
         acc_on_train = accuracy_score(glob.y, predictions_df).round(5)
         logger.info(f"acc_on_train: {acc_on_train}")
-        mlflow.log_metric("acc_on_train", acc_on_train) if use_mlflow else None
+        mlflow.log_metric("acc_on_train", acc_on_train) if settings_obj.use_mlflow else None
         # sys.exit()
     if settings_obj.create_submission_file:
         X_test = processed["test_dataframe"]
         predictions_df = predict_v1.run(settings_obj, classifiers, X_test, processed["sub_dataframe"])
         glob.predictions_df = predictions_df
         kaggle_utils.create_sub_file(predictions_df)
-    if use_mlflow:
+    if settings_obj.use_mlflow:
         if settings_obj.use_logfile:
             mlflow.log_artifact("file.log")
         mlflow.end_run()
 
 
 if __name__ == "__main__":
-    # when running from qtconsole with the wrong path command like:
-    # %run forest_cover_type/runner.py -d asd
+    # When running from qtconsole with the wrong path command like:
+    # %run -m forest_cover_type.runner -d asd
     # with just run() it shows list of big annoying exceptions.
     # So here is the temporary(?) solution to make it less annoying.
     try:
         run()
     except SystemExit as e:
         if len(str(e)) == 0:
-            # sys.exit()
             # print("no error")
             pass
         elif len(str(e)) == 1 and str(e) == "0":
-            # end of code
+            # Reached end of code
             pass
         else:
             # show minimum
             # write to log/history?
             traceback.print_exc(limit=1, chain=False)
+            # logger.error(traceback.format_exc(limit=2, chain=False))
