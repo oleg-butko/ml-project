@@ -1,7 +1,7 @@
 ## Python Project Template
 
-I have tried a couple templates and chose to go with this one because it was pretty simple.
-[Python Project Template](https://github.com/MislavJaksic/Python-Project-Template)
+I tried a couple templates and chose to go with [this one](https://github.com/MislavJaksic/Python-Project-Template) because it was pretty simple.
+
 
 ## Notes
 
@@ -25,29 +25,11 @@ as a base to make a simple working structure with 4 steps: preprocessing, train,
 5. When adding mlflow on Windows OS there was the error with pywin32 package. The solution I found was to add pywin32 first with `poetry add pywin32 --optional` and then `poetry add mlflow`.
 6. The command `%run forest_cover_type/runner.py` for qtconsole doesn't work now, because of using relative import "ImportError: attempted relative import with no known parent package". The command `%run -m forest_cover_type.runner -d data` works.
 7. MLflow doesn't work when running from qtconsole. But it's not needed there anyway.
-
-
-### Some basic commands:
-
-```
-poetry install
-
-tests
-poetry run pytest --durations=0
-poetry run pytest --cov=forest_cover_type --cov-report=html tests
-
-formatter
-poetry run black .
-
-build
-poetry build
-
-profiler
-poetry shell
-in shell: python -m cProfile forest_cover_type/runner.py
-```
-
-
+8. The most common command: `poetry run entry -d data -t cfg/kfold.ini.txt`
+9. The `data` folder must have: train.csv (~2MB) test.csv (~72MB)
+10. The subfolder `data/only2krows` could have a small subset of the full data with only 2-3k rows. In this case the command will be: `poetry run entry -d data/only2krows -t cfg/kfold.ini.txt`
+11. `poetry run pytest` doesn't work. It wasn't updated for the recent changes.
+12. `nox` and `mypy` probably doesn't work too.
 
 ## Done
 
@@ -60,8 +42,8 @@ in shell: python -m cProfile forest_cover_type/runner.py
 5. Create a data folder and place the dataset there.
     1. add your data to gitignore. **(5 points)**
 6. Write a script that trains a model and saves it to a file. Your script should be runnable from the terminal, receive some arguments such as the path to data, model configurations, etc. To create CLI, you can use argparse, click (as in the demo), hydra, or some other alternatives. **(10 points)**
-   1. poetry run entry -d data -t cfg/using_cache.ini
-   2. poetry run entry -d data -t cfg/kfold.ini.txt
+   1. `poetry run entry -d data -t cfg/using_cache.ini`
+   2. `poetry run entry -d data -t cfg/kfold.ini.txt`
    3. (optional) Register your script in pyproject.toml **(2 points)**
 7. Choose some metrics to validate your model (at least 3) and calculate them after training. Use K-fold cross-validation. **10 points maximum: 2 per metric + 4 for K-fold**
    1. ml-project/forest_cover_type/train/train_v1.py -> kfold
@@ -73,5 +55,6 @@ in shell: python -m cProfile forest_cover_type/runner.py
     6. kfold.ini.txt has sections named [run_1]..[run_n]. Each section has classifier parameter (2 different classifiers/models). The option for feature engineering is common for all sections. In the screenshot it's 2 runs (CLI calls) with different configs (feature engineering named fe_1 or fe_2).
 9. Not done
 10. In your README, write instructions on how to run your code (training script and optionally other scripts you created, such as EDA)
+11-14 Not done
 
 
