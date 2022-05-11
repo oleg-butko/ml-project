@@ -65,10 +65,12 @@ in shell: python -m cProfile forest_cover_type/runner.py
    3. (optional) Register your script in pyproject.toml **(2 points)**
 7. Choose some metrics to validate your model (at least 3) and calculate them after training. Use K-fold cross-validation. **10 points maximum: 2 per metric + 4 for K-fold**
    1. ml-project/forest_cover_type/train/train_v1.py -> kfold
-8. Conduct experiments with your model. Track each experiment into MLFlow. Make a screenshot of the results in the MLFlow UI and include it in README. You can see the screenshot example below, but in your case, it may be more complex than that. Choose the best configuration with respect to a single metric (most important of all metrics you calculate, according to your opinion). 
+8. Conduct experiments with your model. Track each experiment into MLFlow. Make a screenshot of the results in the MLFlow UI and include it in README.
     1. Try at least three different sets of hyperparameters for each model. **(3 points)**
     2. Try at least two different feature engineering techniques for each model. **(4 points)**
     3. Try at least two different ML models. **(4 points)**
+    4. Here is the screenshot https://github.com/oleg-butko/ml-project/blob/main/scrshot/mlflow.jpg
+    6. kfold.ini.txt has sections named [run_1]..[run_n]. Each section has classifier parameter (2 different classifiers/models). The option for feature engineering is common for all sections. In the screenshot it's 2 runs (CLI calls) with different configs (feature engineering named fe_1 or fe_2).
 9. Not done
 10. In your README, write instructions on how to run your code (training script and optionally other scripts you created, such as EDA)
 
