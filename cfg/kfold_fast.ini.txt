@@ -1,0 +1,19 @@
+# utf-8
+# global settings: forest_cover_type/settings.py
+# Using .txt file extension because mlflow doesn't support .ini in the file preview
+
+[Common]
+
+# mode also is used as name for mlflow.set_experiment(name)
+mode = kfold
+n_splits = 4
+
+feature_engineering = fe_2
+
+[run_1]
+classifier = RandomForestClassifier
+criterion = entropy
+n_estimators = 15
+max_depth = None
+bootstrap = False
+ccp_alpha=0.0002

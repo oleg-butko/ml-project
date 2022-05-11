@@ -7,6 +7,7 @@ import numpy as np
 
 # Hide warnings from sklearn about deprecation that mlflow shows
 warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
 # mlflow is not available from qtconsole (for debugging): %run -m forest_cover_type.runner
 use_mlflow = True
 try:
@@ -103,19 +104,22 @@ def run(**opts):
     settings_obj.update(opts)
     settings_obj = dotdict(settings_obj)
     utils.process_settings(settings_obj)
-    print("settings_obj:", settings_obj)
-    # sys.exit()
+    # print("settings_obj:", settings_obj)
     settings_obj.use_mlflow = use_mlflow and settings_obj.use_mlflow
-
     if settings_obj.use_mlflow:
+        #
+        # mlflow
+        #
         # https://www.mlflow.org/docs/latest/tracking.html
         logger.info("mlflow is enabled")
         mlflow.set_experiment(settings_obj.mode)
         # mlflow.sklearn.autolog(log_models=False, silent=True) # looks buggy and slow
-        parent_run = mlflow.start_run(run_name="parent_run", description="parent_run description", tags=opts)
+        parent_run_name = "parent_run"
+        if settings_obj.feature_engineering:
+            parent_run_name = settings_obj.feature_engineering
+        parent_run = mlflow.start_run(run_name=parent_run_name, description="", tags=opts)
         mlflow.log_param("parent", "yes")
         mlflow.log_param("version", __version__)
-        mlflow.log_param("command_line_arguments", opts)
         mlflow.log_artifact("forest_cover_type/settings.py")
         client = MlflowClient()
         # https://www.mlflow.org/docs/latest/tracking.html#system-tags
@@ -130,26 +134,35 @@ def run(**opts):
         for run_n in settings_obj.runs.keys():
             if settings_obj.use_mlflow:
                 run_name = f"{run_n} {settings_obj.runs[run_n].classifier}"
+                if settings_obj.feature_engineering:
+                    run_name += " " + settings_obj.feature_engineering
                 nested_run = mlflow.start_run(run_name=run_name, nested=True)
                 client.set_tag(run_id=nested_run.info.run_id, key="mlflow.user", value="")
                 mlflow.log_param("nested_run", "yes")
-            train_v1.kfold(settings_obj, processed["train_dataframes"], run_n=run_n)
+            #
+            # kfold
+            #
+            train_v1.kfold(settings_obj, processed, run_n=run_n)
             if settings_obj.use_mlflow:
                 mlflow.end_run()
         # sys.exit()
     else:
+        #
+        # simple default run, needs cleanup
+        #
         classifiers = train_v1.run(settings_obj, processed["train_dataframes"])
         predictions_df = predict_v1.run(settings_obj, classifiers, glob.X_train)
         glob.predictions_df = predictions_df
         acc_on_train = accuracy_score(glob.y, predictions_df).round(5)
         logger.info(f"acc_on_train: {acc_on_train}")
         mlflow.log_metric("acc_on_train", acc_on_train) if settings_obj.use_mlflow else None
+        settings_obj.create_submission_file = False
         # sys.exit()
-    if settings_obj.create_submission_file:
-        X_test = processed["test_dataframe"]
-        predictions_df = predict_v1.run(settings_obj, classifiers, X_test, processed["sub_dataframe"])
-        glob.predictions_df = predictions_df
-        kaggle_utils.create_sub_file(predictions_df)
+    # if settings_obj.create_submission_file:
+    #     X_test = processed["test_dataframe"]
+    #     predictions_df = predict_v1.run(settings_obj, classifiers, X_test, processed["sub_dataframe"])
+    #     glob.predictions_df = predictions_df
+    #     kaggle_utils.create_sub_file(predictions_df)
     if settings_obj.use_mlflow:
         if settings_obj.use_logfile:
             mlflow.log_artifact("file.log")

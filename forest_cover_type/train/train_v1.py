@@ -2,6 +2,7 @@
 from joblib import dump, load
 from loguru import logger  # type:ignore
 import numpy as np
+import pandas as pd
 from sklearn import ensemble
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
@@ -41,11 +42,14 @@ def get_scorer_for(cls_label):
 #
 # %run -m forest_cover_type.runner -t cfg/kfold.ini
 #
-def kfold(settings, dataframes, run_n=None):
+def kfold(settings, processed, run_n=None):
+    dataframes = processed["train_dataframes"]
     assert len(dataframes) > 0
     assert run_n is not None
     random_state = settings.SEED
     X, y = dataframes[0]
+    # settings.X = X
+    # sys.exit()
     X, y = X.values, y.values
     run_name = f"{run_n} {settings.runs[run_n].classifier}"
     logger.info(f"{run_name} kfold, X.shape: {X.shape}, n_splits: {settings.n_splits}")
@@ -56,8 +60,13 @@ def kfold(settings, dataframes, run_n=None):
     #     y_train, y_test = y[train_index], y[test_index]
     #     print("np.unique(y_test):", np.unique(y_test))
 
+    # del few params which are not for classifier
     classifier = settings.runs[run_n].classifier
     del settings.runs[run_n]["classifier"]
+    create_submission_file = settings.runs[run_n].create_submission_file  # True or None
+    if create_submission_file:
+        del settings.runs[run_n]["create_submission_file"]
+
     logger.info(f"  params: {settings.runs[run_n]}")
     if classifier == "DecisionTreeClassifier":
         clf = DecisionTreeClassifier(**(settings.runs[run_n]), random_state=random_state)
@@ -67,6 +76,22 @@ def kfold(settings, dataframes, run_n=None):
         logger.error(f"Invalid classifier in: {run_n}")
         raise ValueError
 
+    if create_submission_file:
+        clf.fit(X, y)
+        test_df = processed["test_dataframe"]
+        y_pred = clf.predict_proba(test_df.values)
+        y_pred = y_pred.argsort(axis=1)[:, -1] + 1
+        sub_df = processed["sub_dataframe"]
+        df = pd.DataFrame(np.column_stack((sub_df.values, y_pred)), columns=["Id", "Cover_Type"])
+        filename = settings.submission_fn_tmpl % run_name
+        df.to_csv(filename, index=False)
+        settings.create_submission_file = False
+        logger.info(f"Submission file '{filename}' was created.")
+        return
+
+    if use_mlflow:
+        for k, v in settings.runs[run_n].items():
+            mlflow.log_param(k, v)
     # https://scikit-learn.org/stable/modules/model_evaluation.html
     scoring = {
         "f1_macro": "f1_macro",

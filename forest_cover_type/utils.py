@@ -18,6 +18,7 @@ def process_settings(settings):
     # set some needed default values if not exists
     settings.mode = settings.get("mode", "default_mode")
     settings.n_splits = settings.get("n_splits", 3)
+    settings.feature_engineering = settings.get("feature_engineering", None)
     settings.n_jobs = settings.get("n_jobs", -1)
     settings.clf_n_estimators = settings.get("clf_n_estimators", 4)
     settings.use_booster = settings.get("use_booster", False)
@@ -33,6 +34,9 @@ def process_settings(settings):
         config.read(settings.train_cfg, encoding="utf-8")
         settings.mode = config.get("Common", "mode", fallback=settings.mode)
         settings.n_splits = int(config.get("Common", "n_splits", fallback=settings.n_splits))
+        settings.feature_engineering = config.get(
+            "Common", "feature_engineering", fallback=settings.feature_engineering
+        )
         settings.model_path = Path(config.get("Common", "model_path", fallback=settings.model_path))
         settings.save_if_not_exists = strtobool(
             config.get("Common", "save_if_not_exists", fallback=str(settings.save_if_not_exists))
