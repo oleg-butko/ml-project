@@ -17,19 +17,17 @@ as a base to make a simple working structure with 4 steps: preprocessing, train,
     3. In the qtconsole: %run forest_cover_type/runner.py
 4. Using CLI:
     1. qtconsole use:
-     `%run forest_cover_type/runner.py -d data/only2krows`
-
-     `%run forest_cover_type/runner.py -a`
-    2. poetry use:
-    `poetry run entry -d data/only2krows`
-5. When adding mlflow on Windows OS there was the error with pywin32 package. The solution I found was to add pywin32 first with `poetry add pywin32 --optional` and then `poetry add mlflow`.
-6. The command `%run forest_cover_type/runner.py` for qtconsole doesn't work now, because of using relative import "ImportError: attempted relative import with no known parent package". The command `%run -m forest_cover_type.runner -d data` works.
-7. MLflow doesn't work when running from qtconsole. But it's not needed there anyway.
-8. The most common command: `poetry run entry -d data -t cfg/kfold.ini.txt`
-9. The `data` folder must have: train.csv (~2MB) test.csv (~72MB)
-10. The subfolder `data/only2krows` could have a small subset of the full data with only 2-3k rows. In this case the command will be: `poetry run entry -d data/only2krows -t cfg/kfold.ini.txt`
-11. `poetry run pytest` doesn't work. It wasn't updated for the recent changes.
-12. `nox` and `mypy` probably doesn't work too.
+    2. `%run -m forest_cover_type.runner -d data/only2krows -t cfg/kfold_fast.ini.txt`
+    3. `%run -m forest_cover_type.runner -a` -- to enable auto-update of changed modules
+    4. poetry use:
+    5. `poetry run entry -d data/only2krows`
+5. When adding mlflow on Windows OS there was the error with pywin32 package. The solution I found was to add pywin32 first with `poetry add pywin32 --optional` and then `poetry add mlflow`. Remove pywin32 if you're not on Windows and have troubles with pywin32.
+6. MLflow doesn't work when running from qtconsole. But it's not needed there anyway. The `settings.py` has option to disable a few things including mlflow.
+7. The most common command: `poetry run entry -d data -t cfg/kfold.ini.txt`
+8.  The `data` folder must have: train.csv (~2MB) test.csv (~72MB)
+9.  The subfolder `data/only2krows` could have a smaller subset of the full data with only 2-3k rows. In this case the command will be: `poetry run entry -d data/only2krows -t cfg/kfold.ini.txt`
+10. `poetry run pytest` doesn't work. It wasn't updated for the recent changes.
+11. `nox` and `mypy` probably doesn't work too.
 
 ## Done
 
