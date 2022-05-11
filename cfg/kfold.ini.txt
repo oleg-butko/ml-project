@@ -11,7 +11,7 @@ n_splits = 4
 # the feature_engineering value is used as name for parent_run and as part of nested_run name
 # feature_engineering = fe_1 or fe_2
 
-feature_engineering = fe_1
+feature_engineering = fe_2
 
 # [run_N] must have classifier key:
 # classifier = DecisionTreeClassifier or RandomForestClassifier
