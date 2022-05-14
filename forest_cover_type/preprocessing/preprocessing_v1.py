@@ -14,10 +14,12 @@ from sklearn.preprocessing import normalize, StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestClassifier
 
-# from boruta import BorutaPy
-
-
-# from ..package_two import module_two
+# https://github.com/scikit-learn-contrib/boruta_py
+boruta_not_found = False
+try:
+    from boruta import BorutaPy
+except ModuleNotFoundError:
+    boruta_not_found = True
 
 
 def load_data(settings):
@@ -40,8 +42,21 @@ def load_data(settings):
     return df_train, df_test
 
 
+def fe_none(settings, df_train, df_test):
+    X_train = df_train.drop(["Cover_Type", "Id"], axis=1)
+    y = df_train["Cover_Type"]
+    return {
+        "train_dataframes": [(X_train, y)],
+        "test_dataframe": df_test.drop("Id", axis=1),
+        "sub_dataframe": df_test["Id"],
+    }
+
+
 def fe_1(settings, df_train, df_test):
-    return
+    if boruta_not_found:
+        logger.warning("boruta not found, using fe_none instead of fe_1")
+        return fe_none(settings, df_train, df_test)
+
     feat_selector = BorutaPy(
         RandomForestClassifier(
             max_depth=None,
@@ -50,7 +65,7 @@ def fe_1(settings, df_train, df_test):
         ),
         n_estimators="auto",
         max_iter=50,
-        random_state=settings.SEED,
+        random_state=settings.random_state,
         verbose=1,
     )
     X_train = df_train.drop(["Cover_Type", "Id"], axis=1)
@@ -145,8 +160,11 @@ def run(settings):
     elif settings.feature_engineering == "fe_2":
         result = fe_2(settings, df_train, df_test)
     else:
+        result = fe_none(settings, df_train, df_test)
+        logger.error("444")
+
         logger.error("Invalid feature_engineering value in config")
-        raise ValueError
+        # raise ValueError
     X_train = result["train_dataframes"][0][0]
     logger.info(f"X_train.shape: {X_train.shape}")
     assert df_train.isna().sum().sum() == 0
