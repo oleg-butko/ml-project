@@ -9,6 +9,7 @@ glob = utils.dotdict({})
 
 def create_sub_file(df, settings):
     df.to_csv(settings.submission_fn, index=False)
+    logger.info(f"Created {settings.submission_fn}.")
 
 
 def upload_and_get_score(settings):
@@ -42,5 +43,5 @@ def upload_and_get_score(settings):
     res_2 = subprocess.check_output(cmd_2, shell=True).decode(sys.stdout.encoding)
     df = pd.read_csv(io.StringIO(res_2))
     score = df[df.description == sub_msg].publicScore.values[0]
-    logger.info(f"Score: {score}")
+    logger.info(f"Kaggle score: {score}")
     return score

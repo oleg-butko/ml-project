@@ -27,6 +27,7 @@ from .predict import predict_v1
 from .report import kaggle_utils
 
 # Example of correct call from qtconsole:
+# %run -m forest_cover_type.runner -a
 # %run -m forest_cover_type.runner -d data/only2krows -t cfg/kfold.ini
 
 
@@ -44,9 +45,9 @@ logger.add(PropagateHandler(), format="{message}")
 
 # globals for debugging only(!) in qtconsole
 # Warning: autoreload leads to them being reset dynamically after a code change
-global settings_obj, glob
-settings_obj = None
-glob = utils.dotdict({})
+global g_settings
+g_settings = {}
+
 
 #
 # Main entry
@@ -70,30 +71,35 @@ def run(**opts):
     if opts["autoreload"]:
         utils.autoreload()
         return
-    global settings_obj, glob  # for debug
-    settings_obj = {
+    global g_settings  # for debug
+    g_settings = {
         item: getattr(settings_py, item)
         for item in dir(settings_py)
         if not item.startswith("__") and not item.endswith("__")
     }
-    settings_obj.update(opts)
-    settings_obj = utils.dotdict(settings_obj)
-    utils.process_settings(settings_obj)
-    # print("settings_obj:", settings_obj)
+    g_settings.update(opts)
+    g_settings = utils.dotdict(g_settings)
+    g_settings.vars = utils.dotdict({})
+    utils.process_settings(g_settings)
+    # print("g_settings:", g_settings)
+    # print("sys.modules[__name__]:", sys.modules[__name__])
+    # sys.modules['forest_cover_type'].runner
+    # sys.exit()
+
     #
-    # kaggle_utils.upload_and_get_score(settings_obj)
-    settings_obj.use_mlflow = use_mlflow and settings_obj.use_mlflow
-    if settings_obj.use_mlflow:
+    # kaggle_utils.upload_and_get_score(g_settings)
+    g_settings.use_mlflow = use_mlflow and g_settings.use_mlflow
+    if g_settings.use_mlflow:
         #
         # mlflow
         #
         # https://www.mlflow.org/docs/latest/tracking.html
         logger.info("mlflow is enabled")
-        mlflow.set_experiment(settings_obj.mode)
+        mlflow.set_experiment(g_settings.mode)
         # mlflow.sklearn.autolog(log_models=False, silent=True) # looks buggy and slow
         parent_run_name = "parent_run"
-        if settings_obj.feature_engineering:
-            parent_run_name = settings_obj.feature_engineering
+        if g_settings.feature_engineering:
+            parent_run_name = g_settings.feature_engineering
         parent_run = mlflow.start_run(run_name=parent_run_name, description="", tags=opts)
         mlflow.log_param("parent", "yes")
         mlflow.log_param("version", __version__)
@@ -102,46 +108,61 @@ def run(**opts):
         # https://www.mlflow.org/docs/latest/tracking.html#system-tags
         client.set_tag(run_id=parent_run.info.run_id, key="mlflow.user", value="")
         client.set_tag(run_id=parent_run.info.run_id, key="mlflow.source.git.commit", value=__version__)
-        if settings_obj.train_cfg is not None:
-            mlflow.log_artifact(settings_obj.train_cfg)
-        mlflow.log_param("settings_obj", settings_obj)
-    processed = preprocessing_v1.run(settings_obj)
-    glob.X_train, glob.y = processed["train_dataframes"][0]
-    if settings_obj.mode == "kfold":
-        for run_n in settings_obj.runs.keys():
-            if settings_obj.use_mlflow:
-                run_name = f"{run_n} {settings_obj.runs[run_n].classifier}"
-                if settings_obj.feature_engineering:
-                    run_name += " " + settings_obj.feature_engineering
+        if g_settings.train_cfg is not None:
+            mlflow.log_artifact(g_settings.train_cfg)
+        mlflow.log_param("g_settings", g_settings)
+    #
+    # mode
+    #
+    if g_settings.mode == "kfold":
+        processed = preprocessing_v1.run(g_settings)
+        for run_n in g_settings.runs.keys():
+            if g_settings.use_mlflow:
+                run_name = f"{run_n} {g_settings.runs[run_n].classifier}"
+                if g_settings.feature_engineering:
+                    run_name += " " + g_settings.feature_engineering
                 nested_run = mlflow.start_run(run_name=run_name, nested=True)
                 client.set_tag(run_id=nested_run.info.run_id, key="mlflow.user", value="")
                 mlflow.log_param("nested_run", "yes")
             #
             # kfold
             #
-            train_v1.kfold(settings_obj, processed, run_n=run_n)
-            if settings_obj.use_mlflow:
+            train_v1.kfold(g_settings, processed, run_n=run_n)
+            if g_settings.use_mlflow:
                 mlflow.end_run()
         # sys.exit()
     else:
         #
-        # simple default run, needs cleanup
+        # simple default: %run -m forest_cover_type
         #
-        classifiers = train_v1.run(settings_obj, processed["train_dataframes"])
-        predictions_df = predict_v1.run(settings_obj, classifiers, glob.X_train)
-        glob.predictions_df = predictions_df
-        acc_on_train = accuracy_score(glob.y, predictions_df).round(5)
+        # print("g_settings:", g_settings)
+        g_settings.dataset_path = "data"
+        g_settings.create_submission_file = True
+        g_settings.get_kaggle_score = True
+        g_settings.feature_engineering = "fe_2"
+        g_settings.clf_n_estimators = 100
+        g_settings.max_depth = None
+        g_settings.use_booster = True
+        g_settings.n_jobs = -1
+        processed = preprocessing_v1.run(g_settings)
+        g_settings.vars.X_train, g_settings.vars.y = processed["train_dataframes"][0]
+        classifiers = train_v1.run(g_settings, processed["train_dataframes"])
+        X_train_df = processed["train_dataframes"][0][0]
+        predictions_df = predict_v1.run(g_settings, classifiers, X_train_df)
+        g_settings.vars.predictions_df = predictions_df
+        acc_on_train = accuracy_score(g_settings.vars.y, predictions_df).round(5)
         logger.info(f"acc_on_train: {acc_on_train}")
-        mlflow.log_metric("acc_on_train", acc_on_train) if settings_obj.use_mlflow else None
-        settings_obj.create_submission_file = False
-        # sys.exit()
-    # if settings_obj.create_submission_file:
-    #     X_test = processed["test_dataframe"]
-    #     predictions_df = predict_v1.run(settings_obj, classifiers, X_test, processed["sub_dataframe"])
-    #     glob.predictions_df = predictions_df
-    #     kaggle_utils.create_sub_file(predictions_df, settings_obj)
-    if settings_obj.use_mlflow:
-        if settings_obj.use_logfile:
+        if g_settings.use_mlflow:
+            mlflow.log_metric("acc_on_train", acc_on_train) if g_settings.use_mlflow else None
+        if g_settings.create_submission_file:
+            X_test = processed["test_dataframe"]
+            predictions_df = predict_v1.run(g_settings, classifiers, X_test, processed["sub_dataframe"])
+            g_settings.vars.predictions_df = predictions_df
+            kaggle_utils.create_sub_file(predictions_df, g_settings)
+            if g_settings.get_kaggle_score:
+                kaggle_utils.upload_and_get_score(g_settings)
+    if g_settings.use_mlflow:
+        if g_settings.use_logfile:
             mlflow.log_artifact("file.log")
         mlflow.end_run()
 

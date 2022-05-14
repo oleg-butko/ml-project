@@ -36,7 +36,6 @@ def load_data(settings):
             logger.info(f"read_csv: {path}")
         else:
             raise FileNotFoundError(path)
-        assert df_test.isna().sum().sum() == 0
     else:
         df_test = pd.DataFrame(columns=["Id"])
     return df_train, df_test
@@ -161,12 +160,10 @@ def run(settings):
         result = fe_2(settings, df_train, df_test)
     else:
         result = fe_none(settings, df_train, df_test)
-        logger.error("444")
-
-        logger.error("Invalid feature_engineering value in config")
+        # logger.error("Invalid feature_engineering value in config")
         # raise ValueError
     X_train = result["train_dataframes"][0][0]
     logger.info(f"X_train.shape: {X_train.shape}")
-    assert df_train.isna().sum().sum() == 0
-    assert X_train.isna().sum().sum() == 0
+    # assert df_train.isna().sum().sum() == 0
+    # assert X_train.isna().sum().sum() == 0
     return result

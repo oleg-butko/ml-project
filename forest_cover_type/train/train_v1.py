@@ -120,7 +120,7 @@ def kfold(settings, processed, run_n=None):
 
 
 def run(settings, dataframes):
-    assert len(dataframes) == 3
+    assert len(dataframes) > 0
     clf = ensemble.ExtraTreesClassifier(
         n_estimators=settings.clf_n_estimators,
         max_depth=settings.max_depth,
@@ -134,11 +134,17 @@ def run(settings, dataframes):
 
     X_train, y = dataframes[0]
     logger.info(f"clf.fit(X_train, y), X_train.shape: {X_train.shape}")
-    print("clf_n_estimators:", settings.clf_n_estimators)
-    print("max_depth:", settings.max_depth)
+    # from forest_cover_type.utils import dotdict
+    # s = dotdict(sys.modules["forest_cover_type"].runner.settings_obj)
+    # s.vars.keys()
+    # s.vars.X_train_1.shape (2451, 58)
+    # s.vars.test_df.shape
+    # settings.vars.X_train_1 = X_train
+    assert X_train.shape[1] == 58
     clf.fit(X_train, y)
 
     if settings.use_booster:
+        assert len(dataframes) == 3
         clf_1_2 = ensemble.RandomForestClassifier(
             n_estimators=settings.booster_n_estimators_1,
             n_jobs=settings.n_jobs,
