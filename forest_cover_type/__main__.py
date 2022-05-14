@@ -3,7 +3,7 @@ from pathlib import Path
 import click
 from loguru import logger  # type:ignore
 from sklearn.metrics import accuracy_score
-import numpy as np
+
 
 # Hide warnings from sklearn about deprecation that mlflow shows
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -30,31 +30,6 @@ from .report import kaggle_utils
 # %run -m forest_cover_type.runner -d data/only2krows -t cfg/kfold.ini
 
 
-def autoreload():
-    """This enables auto-reload mode for qtconsole to reload module after the source code was changed.
-    Example: %run -m forest_cover_type.runner -a
-    """
-    get_ipython().run_line_magic("load_ext", "autoreload")  # type:ignore
-    get_ipython().run_line_magic("autoreload", "2")  # type:ignore
-    # also set these options for pretty output
-    np.set_printoptions(
-        precision=3,
-        suppress=True,
-        linewidth=115,
-        threshold=1000,
-        formatter=dict(float_kind=lambda x: "%6.3f" % x),
-    )
-
-
-class dotdict(dict):
-    """dot.notation access to dictionary attributes.
-    Allows to get an attr by settings.attr instead of settings["attr"]
-    """
-
-    __getattr__ = dict.get
-    __setattr__ = dict.__setitem__
-
-
 #
 # loguru init
 #
@@ -71,7 +46,7 @@ logger.add(PropagateHandler(), format="{message}")
 # Warning: autoreload leads to them being reset dynamically after a code change
 global settings_obj, glob
 settings_obj = None
-glob = dotdict({})
+glob = utils.dotdict({})
 
 #
 # Main entry
@@ -93,7 +68,7 @@ glob = dotdict({})
 def run(**opts):
     """Main entry point."""
     if opts["autoreload"]:
-        autoreload()
+        utils.autoreload()
         return
     global settings_obj, glob  # for debug
     settings_obj = {
@@ -102,9 +77,11 @@ def run(**opts):
         if not item.startswith("__") and not item.endswith("__")
     }
     settings_obj.update(opts)
-    settings_obj = dotdict(settings_obj)
+    settings_obj = utils.dotdict(settings_obj)
     utils.process_settings(settings_obj)
     # print("settings_obj:", settings_obj)
+    #
+    # kaggle_utils.upload_and_get_score(settings_obj)
     settings_obj.use_mlflow = use_mlflow and settings_obj.use_mlflow
     if settings_obj.use_mlflow:
         #
@@ -162,7 +139,7 @@ def run(**opts):
     #     X_test = processed["test_dataframe"]
     #     predictions_df = predict_v1.run(settings_obj, classifiers, X_test, processed["sub_dataframe"])
     #     glob.predictions_df = predictions_df
-    #     kaggle_utils.create_sub_file(predictions_df)
+    #     kaggle_utils.create_sub_file(predictions_df, settings_obj)
     if settings_obj.use_mlflow:
         if settings_obj.use_logfile:
             mlflow.log_artifact("file.log")

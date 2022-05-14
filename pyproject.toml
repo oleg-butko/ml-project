@@ -37,5 +37,5 @@ mypy = "^0.950"
 entry = "forest_cover_type.runner:run"
 
 [build-system]
-requires = ["poetry>=0.12"]
+requires = ["poetry>=1.0.0"]
 build-backend = "poetry.masonry.api"

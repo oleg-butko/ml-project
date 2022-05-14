@@ -3,6 +3,7 @@ from ast import literal_eval
 from distutils.util import strtobool
 from pathlib import Path
 from loguru import logger  # type:ignore
+import numpy as np
 
 
 class dotdict(dict):
@@ -84,3 +85,19 @@ def process_settings(settings):
     else:
         logger_config = {"handlers": [{"sink": sys.stdout, "format": "<green>{module}</green> {message}"}]}
     logger.configure(**logger_config)
+
+
+def autoreload():
+    """This enables auto-reload mode for qtconsole to reload module after the source code was changed.
+    Example: %run -m forest_cover_type.runner -a
+    """
+    get_ipython().run_line_magic("load_ext", "autoreload")  # type:ignore
+    get_ipython().run_line_magic("autoreload", "2")  # type:ignore
+    # also set these options for pretty output
+    np.set_printoptions(
+        precision=3,
+        suppress=True,
+        linewidth=115,
+        threshold=1000,
+        formatter=dict(float_kind=lambda x: "%6.3f" % x),
+    )

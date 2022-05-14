@@ -13,7 +13,8 @@ from loguru import logger  # type:ignore
 from sklearn.preprocessing import normalize, StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestClassifier
-from boruta import BorutaPy
+
+# from boruta import BorutaPy
 
 
 # from ..package_two import module_two
@@ -40,6 +41,7 @@ def load_data(settings):
 
 
 def fe_1(settings, df_train, df_test):
+    return
     feat_selector = BorutaPy(
         RandomForestClassifier(
             max_depth=None,
