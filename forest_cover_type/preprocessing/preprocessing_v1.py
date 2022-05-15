@@ -11,7 +11,6 @@ import numpy as np
 import pandas as pd
 from loguru import logger  # type:ignore
 from sklearn.preprocessing import normalize, StandardScaler
-from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestClassifier
 
 # https://github.com/scikit-learn-contrib/boruta_py
@@ -86,11 +85,7 @@ def fe_1(settings, df_train, df_test):
     }
 
 
-def fe_2(settings, df_train, df_test):
-    # target Cover_Type
-    # train.Cover_Type.unique() # 1..7
-    # {2: 860, 5: 641, 1: 499, 6: 179, 7: 125, 3: 107, 4: 40}
-    # {5: 2160, 2: 2160, 1: 2160, 7: 2160, 3: 2160, 6: 2160, 4: 2160}
+def transform_1(df):
     cols_to_normalize = [
         "Aspect",
         "Slope",
@@ -101,37 +96,28 @@ def fe_2(settings, df_train, df_test):
         "Hillshade_3pm",
         "Horizontal_Distance_To_Fire_Points",
     ]
+    # df[cols_to_normalize] = StandardScaler().fit_transform(df[cols_to_normalize]) # 0.79067
+    # normalize: 0.82769, no normalize: 0.81461
+    df[cols_to_normalize] = normalize(df[cols_to_normalize])
+    df["binned_elevation"] = [np.floor(v / 50.0) for v in df["Elevation"]]
+    df["Horizontal_Distance_To_Roadways_Log"] = [np.log(v + 1) for v in df["Horizontal_Distance_To_Roadways"]]
+    df["Soil_Type12_32"] = df["Soil_Type32"] + df["Soil_Type12"]
+    df["Soil_Type23_22_32_33"] = df["Soil_Type23"] + df["Soil_Type22"] + df["Soil_Type32"] + df["Soil_Type33"]
+    return df
 
-    df_train[cols_to_normalize] = normalize(df_train[cols_to_normalize])
+
+def fe_2(settings, df_train, df_test):
     feature_cols = [col for col in df_train.columns if col not in ["Cover_Type", "Id"]]
     feature_cols.append("binned_elevation")
     feature_cols.append("Horizontal_Distance_To_Roadways_Log")
     feature_cols.append("Soil_Type12_32")
     feature_cols.append("Soil_Type23_22_32_33")
-    df_train["binned_elevation"] = [np.floor(v / 50.0) for v in df_train["Elevation"]]
-    df_train["Horizontal_Distance_To_Roadways_Log"] = [
-        np.log(v + 1) for v in df_train["Horizontal_Distance_To_Roadways"]
-    ]
-    df_train["Soil_Type12_32"] = df_train["Soil_Type32"] + df_train["Soil_Type12"]
-    df_train["Soil_Type23_22_32_33"] = (
-        df_train["Soil_Type23"] + df_train["Soil_Type22"] + df_train["Soil_Type32"] + df_train["Soil_Type33"]
-    )
-
+    df_train = transform_1(df_train)
     df_train_1_2 = df_train[(df_train["Cover_Type"] <= 2)]
     df_train_3_4_6 = df_train[(df_train["Cover_Type"].isin([3, 4, 6]))]
-
     X_train = df_train[feature_cols]
-
     if df_test.shape[0] > 0:
-        df_test[cols_to_normalize] = normalize(df_test[cols_to_normalize])
-        df_test["binned_elevation"] = [np.floor(v / 50.0) for v in df_test["Elevation"]]
-        df_test["Horizontal_Distance_To_Roadways_Log"] = [
-            np.log(v + 1) for v in df_test["Horizontal_Distance_To_Roadways"]
-        ]
-        df_test["Soil_Type12_32"] = df_test["Soil_Type32"] + df_test["Soil_Type12"]
-        df_test["Soil_Type23_22_32_33"] = (
-            df_test["Soil_Type23"] + df_test["Soil_Type22"] + df_test["Soil_Type32"] + df_test["Soil_Type33"]
-        )
+        df_test = transform_1(df_test)
         X_test = df_test[feature_cols]
     else:
         X_test = df_test

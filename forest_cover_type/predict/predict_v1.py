@@ -24,7 +24,7 @@ def run(settings, classifiers, df, sub_df=None):
     logger.info(f"predict, df.shape: {df.shape}")
     clf = classifiers["clf"]
     # from forest_cover_type.utils import dotdict
-    # s = dotdict(sys.modules["forest_cover_type"].runner.settings_obj)
+    # s = dotdict(sys.modules["forest_cover_type"].runner.g_settings)
     # s.vars.keys()
     # s.vars.X_train.shape (2451, 54)
     # s.vars.df.shape

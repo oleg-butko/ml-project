@@ -8,7 +8,10 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.model_selection import StratifiedKFold, cross_validate
 from sklearn.metrics import roc_auc_score, confusion_matrix
+from sklearn.metrics import accuracy_score, f1_score
 from sklearn.preprocessing import OneHotEncoder
+import xgboost as xgb
+from ..report import kaggle_utils
 
 use_mlflow = True
 try:
@@ -119,6 +122,79 @@ def kfold(settings, processed, run_n=None):
             mlflow.log_metric(f"test_lab_{i}_err", cv_results[f"test_label_{i}_err"].mean())
 
 
+def xgb_1(settings, processed):
+    X_train, y_train = processed["train_dataframes"][0]
+    y_train = y_train - 1
+    dtrain = xgb.DMatrix(X_train, label=y_train)
+    # params = {
+    #     "objective": "reg:linear",
+    #     "max_depth": 2,
+    #     "learning_rate": 0.1,
+    #     "min_child_weight": 3,
+    #     "colsample_bytree": 0.7,
+    #     "subsample": 0.8,
+    #     "gamma": 0,
+    #     "alpha": 1,
+    # }
+    params = {
+        "booster": "gbtree",
+        "objective": "multi:softmax",
+        "num_class": 7,
+        "verbosity": 1,
+    }
+    # trees = 100
+    # trees = 100 # 0.73681
+    # trees = 1000 # 0.75545
+    # logger.info(f"xgb.cv, X_train.shape: {X_train.shape}")
+    # cv = xgb.cv(
+    #     params,
+    #     dtrain,
+    #     metrics=("merror"),
+    #     verbose_eval=False,
+    #     nfold=4,
+    #     show_stdv=False,
+    #     stratified=True,
+    #     num_boost_round=trees,
+    #     seed=settings.random_state,
+    # )
+    logger.info("xgb.train")
+    # bst = xgb.train(params, dtrain, num_boost_round=cv["test-merror-mean"].argmin())
+    bst = xgb.train(params, dtrain, num_boost_round=1000)  # 0.75858
+    y_pred_train = bst.predict(dtrain)
+    settings.vars.y_pred_train = y_pred_train
+    settings.vars.y_true = y_train
+    # average : {'micro', 'macro', 'samples','weighted', 'binary'}
+    f1_w = f1_score(y_true=y_train, y_pred=y_pred_train, average="weighted")
+    logger.info(f"f1_w: {f1_w}")
+    f1_ma = f1_score(y_true=y_train, y_pred=y_pred_train, average="macro")
+    logger.info(f"f1_ma: {f1_ma}")
+    settings.vars.cm = confusion_matrix(y_train, y_pred_train)
+
+    X_test = processed["test_dataframe"]
+    dtest = xgb.DMatrix(X_test)
+    y_pred_test = bst.predict(dtest).astype(int)
+    y_pred_test = y_pred_test
+    # y_pred_test = y_pred_test + 1
+    settings.vars.y_pred_test = y_pred_test
+    sub_df = processed["sub_dataframe"]
+    predictions_df = pd.DataFrame(
+        np.column_stack((sub_df.values, y_pred_test)), columns=["Id", "Cover_Type"], dtype=int
+    )
+    settings.vars.predictions_df = predictions_df
+    predictions_df.to_csv(settings.submission_fn, index=False)
+    logger.info(f"Created {settings.submission_fn}.")
+    kaggle_utils.upload_and_get_score(settings)
+
+    # from forest_cover_type.utils import dotdict
+    # s = dotdict(sys.modules["forest_cover_type"].runner.g_settings)
+    # s.vars.keys()
+    # s.vars.pred_train.shape (15120,)
+
+    # average : {'micro', 'macro', 'samples','weighted', 'binary'} or None, \
+    # acc_on_train = f1_score(g_settings.vars.y, predictions_df).round(5)
+    # logger.info(f"acc_on_train: {acc_on_train}")
+
+
 def run(settings, dataframes):
     assert len(dataframes) > 0
     clf = ensemble.ExtraTreesClassifier(
@@ -126,7 +202,11 @@ def run(settings, dataframes):
         max_depth=settings.max_depth,
         n_jobs=settings.n_jobs,
         random_state=settings.random_state,
+        class_weight={1: 2, 2: 2, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1},
     )
+    # ccp_alpha=0.001 0.74942, ccp_alpha=0.0001 0.80065
+    # class_weight={1: 10, 2: 10, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1} 0.83067 -> 0.82956
+    # class_weight={1: 2, 2: 2, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1} 0.83067 -> 0.83044
     if not settings.use_booster:
         if settings.load_if_exists and settings.model_path.is_file() and settings.model_path.exists():
             clf = load(settings.model_path)
@@ -135,7 +215,7 @@ def run(settings, dataframes):
     X_train, y = dataframes[0]
     logger.info(f"clf.fit(X_train, y), X_train.shape: {X_train.shape}")
     # from forest_cover_type.utils import dotdict
-    # s = dotdict(sys.modules["forest_cover_type"].runner.settings_obj)
+    # s = dotdict(sys.modules["forest_cover_type"].runner.g_settings)
     # s.vars.keys()
     # s.vars.X_train_1.shape (2451, 58)
     # s.vars.test_df.shape
@@ -145,7 +225,7 @@ def run(settings, dataframes):
 
     if settings.use_booster:
         assert len(dataframes) == 3
-        clf_1_2 = ensemble.RandomForestClassifier(
+        clf_1_2 = ensemble.ExtraTreesClassifier(
             n_estimators=settings.booster_n_estimators_1,
             n_jobs=settings.n_jobs,
             random_state=settings.random_state,
@@ -153,7 +233,7 @@ def run(settings, dataframes):
         X_train_1_2, y_1_2 = dataframes[1]
         logger.info(f"clf_1_2.fit(X_train_1_2, y_1_2), X_train_1_2.shape: {X_train_1_2.shape}")
         clf_1_2.fit(X_train_1_2, y_1_2)
-        clf_3_4_6 = ensemble.RandomForestClassifier(
+        clf_3_4_6 = ensemble.ExtraTreesClassifier(
             n_estimators=settings.booster_n_estimators_2,
             n_jobs=settings.n_jobs,
             random_state=settings.random_state,

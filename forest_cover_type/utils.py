@@ -21,7 +21,7 @@ def process_settings(settings):
     settings.n_splits = settings.get("n_splits", 3)
     settings.feature_engineering = settings.get("feature_engineering", None)
     settings.n_jobs = settings.get("n_jobs", -1)
-    settings.clf_n_estimators = settings.get("clf_n_estimators", 4)
+    settings.clf_n_estimators = settings.get("clf_n_estimators", 200)
     settings.use_booster = settings.get("use_booster", False)
     settings.booster_n_estimators_1 = settings.get("booster_n_estimators_1", 200)
     settings.booster_n_estimators_2 = settings.get("booster_n_estimators_2", 200)

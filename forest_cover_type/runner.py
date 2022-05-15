@@ -2,7 +2,7 @@ import sys, os, traceback, warnings, logging
 from pathlib import Path
 import click
 from loguru import logger  # type:ignore
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, f1_score
 
 
 # Hide warnings from sklearn about deprecation that mlflow shows
@@ -26,9 +26,26 @@ from .train import train_v1
 from .predict import predict_v1
 from .report import kaggle_utils
 
-# Example of correct call from qtconsole:
-# %run -m forest_cover_type.runner -a
-# %run -m forest_cover_type.runner -d data/only2krows -t cfg/kfold.ini
+# Correct calls from qtconsole after kernel reload:
+# %run -m forest_cover_type -a
+# r1 (%run -m forest_cover_type)
+# %run -m forest_cover_type -d data/only2krows -t cfg/kfold.ini
+
+# from forest_cover_type.utils import dotdict
+# sys.modules["forest_cover_type"].runner.g_settings.vars.keys()
+# v = dotdict(sys.modules["forest_cover_type"].runner.g_settings.vars)
+# v.keys() -- why does it exist after autoreload?
+# v.X_train.shape (2451, 54)
+# settings.vars.df = df
+# {5: 2160, 2: 2160, 1: 2160, 7: 2160, 3: 2160, 6: 2160, 4: 2160}
+# v.predictions_df['Cover_Type'].value_counts()
+# 2    269711
+# 1    219238
+# 3     28927
+# 7     19343
+# 6     16676
+# 5     10417
+# 4      1580
 
 
 #
@@ -79,15 +96,11 @@ def run(**opts):
     }
     g_settings.update(opts)
     g_settings = utils.dotdict(g_settings)
-    g_settings.vars = utils.dotdict({})
     utils.process_settings(g_settings)
+    g_settings.vars = utils.dotdict({})  # for debug
     # print("g_settings:", g_settings)
-    # print("sys.modules[__name__]:", sys.modules[__name__])
-    # sys.modules['forest_cover_type'].runner
-    # sys.exit()
-
+    # sys.modules['forest_cover_type']
     #
-    # kaggle_utils.upload_and_get_score(g_settings)
     g_settings.use_mlflow = use_mlflow and g_settings.use_mlflow
     if g_settings.use_mlflow:
         #
@@ -112,6 +125,9 @@ def run(**opts):
             mlflow.log_artifact(g_settings.train_cfg)
         mlflow.log_param("g_settings", g_settings)
     #
+    g_settings.mode = "xgb"
+    logger.info(f"mode: {g_settings.mode}")
+    #
     # mode
     #
     if g_settings.mode == "kfold":
@@ -131,16 +147,33 @@ def run(**opts):
             if g_settings.use_mlflow:
                 mlflow.end_run()
         # sys.exit()
+    elif g_settings.mode == "xgb":
+        g_settings.dataset_path = "data"
+        g_settings.get_kaggle_score = False
+        # g_settings.create_submission_file = g_settings.get_kaggle_score
+        g_settings.create_submission_file = True
+        processed = preprocessing_v1.run(g_settings)
+        train_v1.xgb_1(g_settings, processed)
+
     else:
         #
         # simple default: %run -m forest_cover_type
         #
         # print("g_settings:", g_settings)
+        # 0.82769
+        # all ExtraTreesClassifier 0.82977
+        # all RandomForestClassifier 0.81832
+        # all ExtraTreesClassifier (200) 0.83067 (+0.001) 0.83067 - 0.82977
+        # all ExtraTreesClassifier (50) 0.82762
+
         g_settings.dataset_path = "data"
-        g_settings.create_submission_file = True
-        g_settings.get_kaggle_score = True
+        g_settings.get_kaggle_score = False
+        g_settings.create_submission_file = g_settings.get_kaggle_score
         g_settings.feature_engineering = "fe_2"
-        g_settings.clf_n_estimators = 100
+        n_estim = 10
+        g_settings.clf_n_estimators = n_estim
+        g_settings.booster_n_estimators_1 = n_estim
+        g_settings.booster_n_estimators_2 = n_estim
         g_settings.max_depth = None
         g_settings.use_booster = True
         g_settings.n_jobs = -1
@@ -152,6 +185,9 @@ def run(**opts):
         g_settings.vars.predictions_df = predictions_df
         acc_on_train = accuracy_score(g_settings.vars.y, predictions_df).round(5)
         logger.info(f"acc_on_train: {acc_on_train}")
+        f1_w = f1_score(g_settings.vars.y, predictions_df, average="weighted")
+        logger.info(f"f1_w: {f1_w}")
+
         if g_settings.use_mlflow:
             mlflow.log_metric("acc_on_train", acc_on_train) if g_settings.use_mlflow else None
         if g_settings.create_submission_file:

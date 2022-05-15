@@ -23,6 +23,7 @@ mlflow = "^1.25.1"
 pywin32 = {version = "^304", optional = true}
 matplotlib = "^3.5.2"
 Boruta = "^0.3"
+xgboost = "^1.6.1"
 
 [tool.poetry.dev-dependencies]
 pytest-cov = "^2.8.1"
