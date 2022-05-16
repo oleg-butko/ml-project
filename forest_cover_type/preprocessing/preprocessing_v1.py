@@ -28,7 +28,7 @@ def load_data(settings):
         logger.info(f"read_csv: {path}")
     else:
         raise FileNotFoundError(path)
-    if settings.create_submission_file:
+    if settings.load_test_csv:
         path = os.path.join(settings.dataset_path, "test.csv")
         if os.path.isfile(path):
             df_test = pd.read_csv(path)
@@ -38,6 +38,16 @@ def load_data(settings):
     else:
         df_test = pd.DataFrame(columns=["Id"])
     return df_train, df_test
+
+
+def load_new_labels(settings):
+    path = os.path.join(settings.dataset_path, "new_big_train.csv")
+    if os.path.isfile(path):
+        df_big_train = pd.read_csv(path)
+        logger.info(f"read_csv: {path}")
+    else:
+        raise FileNotFoundError(path)
+    return df_big_train
 
 
 def fe_none(settings, df_train, df_test):
@@ -115,10 +125,17 @@ def fe_2(settings, df_train, df_test):
     df_train = transform_1(df_train)
     df_train_1_2 = df_train[(df_train["Cover_Type"] <= 2)]
     df_train_3_4_6 = df_train[(df_train["Cover_Type"].isin([3, 4, 6]))]
+    # print("df_train_1_2", df_train_1_2["Cover_Type"].value_counts().to_dict())
+    # print("df_train_3_4_6", df_train_3_4_6["Cover_Type"].value_counts().to_dict())
+    # df_train_1_2 {2: 2160, 1: 2160}
+    # df_train_3_4_6 {3: 2160, 6: 2160, 4: 2160}
+
     X_train = df_train[feature_cols]
+    settings.vars.df_train = df_train
     if df_test.shape[0] > 0:
         df_test = transform_1(df_test)
         X_test = df_test[feature_cols]
+        settings.vars.df_test = df_test
     else:
         X_test = df_test
 
@@ -138,8 +155,9 @@ def fe_2(settings, df_train, df_test):
 
 def run(settings):
     df_train, df_test = load_data(settings)
-    logger.info(f"feature_engineering: {settings.feature_engineering}")
-    logger.info(f"df_train, df_test: {df_train.shape} {df_test.shape}")
+    if settings.use_pl:
+        df_big_train = load_new_labels(settings)
+    logger.info(f"Loaded: df_train, df_test: {df_train.shape} {df_test.shape}")
     if settings.feature_engineering == "fe_1":
         result = fe_1(settings, df_train, df_test)
     elif settings.feature_engineering == "fe_2":
@@ -149,7 +167,12 @@ def run(settings):
         # logger.error("Invalid feature_engineering value in config")
         # raise ValueError
     X_train = result["train_dataframes"][0][0]
+    X_test = result["test_dataframe"]
+    logger.info(f"After feature_engineering: {settings.feature_engineering}")
     logger.info(f"X_train.shape: {X_train.shape}")
+    logger.info(f"X_test.shape: {X_test.shape}")
     # assert df_train.isna().sum().sum() == 0
     # assert X_train.isna().sum().sum() == 0
+    if settings.use_pl:
+        result["df_big_train"] = df_big_train
     return result

@@ -1,4 +1,4 @@
-import sys, os, traceback, warnings, logging
+import sys, os, traceback, warnings, logging, time
 from pathlib import Path
 import click
 from loguru import logger  # type:ignore
@@ -31,10 +31,10 @@ from .report import kaggle_utils
 # r1 (%run -m forest_cover_type)
 # %run -m forest_cover_type -d data/only2krows -t cfg/kfold.ini
 
-# from forest_cover_type.utils import dotdict
 # sys.modules["forest_cover_type"].runner.g_settings.vars.keys()
+# from forest_cover_type.utils import dotdict
 # v = dotdict(sys.modules["forest_cover_type"].runner.g_settings.vars)
-# v.keys() -- why does it exist after autoreload?
+# v.keys() -- still keeps old values after new run
 # v.X_train.shape (2451, 54)
 # settings.vars.df = df
 # {5: 2160, 2: 2160, 1: 2160, 7: 2160, 3: 2160, 6: 2160, 4: 2160}
@@ -125,7 +125,7 @@ def run(**opts):
             mlflow.log_artifact(g_settings.train_cfg)
         mlflow.log_param("g_settings", g_settings)
     #
-    g_settings.mode = "xgb"
+    # g_settings.mode = "xgb"
     logger.info(f"mode: {g_settings.mode}")
     #
     # mode
@@ -148,55 +148,116 @@ def run(**opts):
                 mlflow.end_run()
         # sys.exit()
     elif g_settings.mode == "xgb":
+        #
+        # xgb
+        #
+        # 0.76459
         g_settings.dataset_path = "data"
-        g_settings.get_kaggle_score = False
-        # g_settings.create_submission_file = g_settings.get_kaggle_score
+        g_settings.get_kaggle_score = True
         g_settings.create_submission_file = True
+        g_settings.use_pl = False
+        g_settings.feature_engineering = "fe_2"
         processed = preprocessing_v1.run(g_settings)
-        train_v1.xgb_1(g_settings, processed)
-
+        train_v1.xgb_full(g_settings, processed)
     else:
         #
-        # simple default: %run -m forest_cover_type
+        # default: %run -m forest_cover_type
         #
         # print("g_settings:", g_settings)
-        # 0.82769
-        # all ExtraTreesClassifier 0.82977
-        # all RandomForestClassifier 0.81832
-        # all ExtraTreesClassifier (200) 0.83067 (+0.001) 0.83067 - 0.82977
+        # all ExtraTreesClassifier > all RandomForestClassifier
+        # all ExtraTreesClassifier (200) 0.83067
         # all ExtraTreesClassifier (50) 0.82762
 
+        g_settings.use_booster = True  # 0.79->0.83
         g_settings.dataset_path = "data"
-        g_settings.get_kaggle_score = False
-        g_settings.create_submission_file = g_settings.get_kaggle_score
+        g_settings.create_submission_file = True
+        g_settings.load_test_csv = True
+        g_settings.search_coef = False
+        g_settings.use_pl = False
+        g_settings.use_cyclic_pl = False
+        if g_settings.use_cyclic_pl:
+            g_settings.use_booster = True
+        g_settings.save_new_labels = False
+        g_settings.get_kaggle_score = True
         g_settings.feature_engineering = "fe_2"
-        n_estim = 10
+        n_estim = 1000  # 200 -> 0.83124, 1000 -> 0.83169
         g_settings.clf_n_estimators = n_estim
         g_settings.booster_n_estimators_1 = n_estim
         g_settings.booster_n_estimators_2 = n_estim
         g_settings.max_depth = None
-        g_settings.use_booster = True
         g_settings.n_jobs = -1
         processed = preprocessing_v1.run(g_settings)
-        g_settings.vars.X_train, g_settings.vars.y = processed["train_dataframes"][0]
-        classifiers = train_v1.run(g_settings, processed["train_dataframes"])
-        X_train_df = processed["train_dataframes"][0][0]
-        predictions_df = predict_v1.run(g_settings, classifiers, X_train_df)
-        g_settings.vars.predictions_df = predictions_df
-        acc_on_train = accuracy_score(g_settings.vars.y, predictions_df).round(5)
-        logger.info(f"acc_on_train: {acc_on_train}")
-        f1_w = f1_score(g_settings.vars.y, predictions_df, average="weighted")
-        logger.info(f"f1_w: {f1_w}")
+        g_settings.vars.processed = processed
+        X_train, y = processed["train_dataframes"][0]
+        if g_settings.use_pl:
+            classifiers = train_v1.run_pl(g_settings, processed)
+            g_settings.use_booster = False  # for predict_v1.run
+            # g_settings.create_submission_file = False
+        elif g_settings.use_cyclic_pl:
+            assert len(processed["train_dataframes"]) == 3
+            classifiers = train_v1.run(g_settings, processed["train_dataframes"])
+            processed = predict_v1.with_new_labels(g_settings, classifiers, processed)
+            classifiers = train_v1.run(g_settings, processed["train_dataframes"])
+            processed = predict_v1.with_new_labels(g_settings, classifiers, processed)
+            classifiers = train_v1.run(g_settings, processed["train_dataframes"])
+            processed = predict_v1.with_new_labels(g_settings, classifiers, processed)
+            classifiers = train_v1.run(g_settings, processed["train_dataframes"])
+            processed = predict_v1.with_new_labels(g_settings, classifiers, processed)
+            classifiers = train_v1.run(g_settings, processed["train_dataframes"])
+            processed = predict_v1.with_new_labels(g_settings, classifiers, processed)
+            X_test = processed["test_dataframe"]
+            predictions_df = predict_v1.run(g_settings, classifiers, X_test, processed["sub_dataframe"])
+            g_settings.vars.predictions_df = predictions_df
+            kaggle_utils.create_sub_file(predictions_df, g_settings)
+            kaggle_utils.upload_and_get_score(g_settings)
+            g_settings.create_submission_file = False
+
+        else:
+            classifiers = train_v1.run(g_settings, processed["train_dataframes"])
+            predictions_df = predict_v1.run(g_settings, classifiers, X_train)
+            g_settings.vars.predictions_df = predictions_df
+            acc_on_train = accuracy_score(y, predictions_df).round(5)
+            logger.info(f"acc_on_train: {acc_on_train}")
+            f1_w = f1_score(y, predictions_df, average="weighted")
+            logger.info(f"f1_w: {f1_w}")
 
         if g_settings.use_mlflow:
             mlflow.log_metric("acc_on_train", acc_on_train) if g_settings.use_mlflow else None
         if g_settings.create_submission_file:
             X_test = processed["test_dataframe"]
-            predictions_df = predict_v1.run(g_settings, classifiers, X_test, processed["sub_dataframe"])
-            g_settings.vars.predictions_df = predictions_df
-            kaggle_utils.create_sub_file(predictions_df, g_settings)
-            if g_settings.get_kaggle_score:
-                kaggle_utils.upload_and_get_score(g_settings)
+            if g_settings.search_coef:
+                for coef_1_diff in [-0.2, -0.1, 0.1, 0.2]:  # 1.4 > 1.2,
+                    for coef_2_diff in [-0.2, -0.1, 0.1, 0.2]:  # 3.8 > 4
+                        for coef_3_diff in [-0.2, -0.1, 0.1, 0.2]:  # 3.8 > 3.4
+                            g_settings.coef_1 = 1.3 + coef_1_diff
+                            g_settings.coef_2 = 3.9 + coef_2_diff
+                            g_settings.coef_3 = 3.6 + coef_3_diff
+                            logger.info(
+                                f"coef_1: {g_settings.coef_1}, coef_2: {g_settings.coef_2}, coef_3: {g_settings.coef_3}"
+                            )
+                            predictions_df = predict_v1.run(
+                                g_settings, classifiers, X_test, processed["sub_dataframe"]
+                            )
+                            kaggle_utils.create_sub_file(predictions_df, g_settings)
+                            kaggle_utils.upload_and_get_score(g_settings)
+                            logger.info("45 seconds sleep")
+                            time.sleep(45)
+            else:
+                predictions_df = predict_v1.run(g_settings, classifiers, X_test, processed["sub_dataframe"])
+                g_settings.vars.predictions_df = predictions_df
+                if g_settings.save_new_labels:
+                    newdf = g_settings.vars.df_test.merge(predictions_df, on="Id")
+                    # newdf.shape (565892, 60)
+                    new_big_train_df = g_settings.vars.df_train.append(newdf, ignore_index=True)
+                    # new_big_train_df.shape (581012, 60)
+                    logger.info(f"new_big_train_df.shape: {new_big_train_df.shape}")
+                    new_train_fn = "new_big_train.csv"
+                    new_big_train_df.to_csv(new_train_fn, index=False)
+                    logger.info(f"Created {new_train_fn}.")
+                else:
+                    kaggle_utils.create_sub_file(predictions_df, g_settings)
+                    if g_settings.get_kaggle_score:
+                        kaggle_utils.upload_and_get_score(g_settings)
     if g_settings.use_mlflow:
         if g_settings.use_logfile:
             mlflow.log_artifact("file.log")

@@ -122,25 +122,28 @@ def kfold(settings, processed, run_n=None):
             mlflow.log_metric(f"test_lab_{i}_err", cv_results[f"test_label_{i}_err"].mean())
 
 
-def xgb_1(settings, processed):
-    X_train, y_train = processed["train_dataframes"][0]
+def xgb_full(settings, processed):
+    if settings.use_pl:
+        logger.info(f"xgb_full  use_pl: {settings.use_pl}")
+        df_big_train = processed["df_big_train"]
+        X_train = df_big_train.drop(["Cover_Type", "Id"], axis=1)
+        y_train = df_big_train["Cover_Type"]
+        settings.vars.X_train = X_train
+        settings.vars.y_train = y_train
+    else:
+        X_train, y_train = processed["train_dataframes"][0]
     y_train = y_train - 1
     dtrain = xgb.DMatrix(X_train, label=y_train)
-    # params = {
-    #     "objective": "reg:linear",
-    #     "max_depth": 2,
-    #     "learning_rate": 0.1,
-    #     "min_child_weight": 3,
-    #     "colsample_bytree": 0.7,
-    #     "subsample": 0.8,
-    #     "gamma": 0,
-    #     "alpha": 1,
-    # }
+    # https://xgboost.readthedocs.io/en/stable/parameter.html#parameters-for-tree-booster
+    #
     params = {
         "booster": "gbtree",
-        "objective": "multi:softmax",
+        "max_depth": 15,
+        "objective": "multi:softmax",  # "multi:softprob"
         "num_class": 7,
         "verbosity": 1,
+        "eval_metric": "mlogloss",  # "auc",
+        "seed": settings.random_state,
     }
     # trees = 100
     # trees = 100 # 0.73681
@@ -157,9 +160,9 @@ def xgb_1(settings, processed):
     #     num_boost_round=trees,
     #     seed=settings.random_state,
     # )
-    logger.info("xgb.train")
     # bst = xgb.train(params, dtrain, num_boost_round=cv["test-merror-mean"].argmin())
-    bst = xgb.train(params, dtrain, num_boost_round=1000)  # 0.75858
+    logger.info("xgb.train")
+    bst = xgb.train(params, dtrain, num_boost_round=1000)
     y_pred_train = bst.predict(dtrain)
     settings.vars.y_pred_train = y_pred_train
     settings.vars.y_true = y_train
@@ -169,12 +172,13 @@ def xgb_1(settings, processed):
     f1_ma = f1_score(y_true=y_train, y_pred=y_pred_train, average="macro")
     logger.info(f"f1_ma: {f1_ma}")
     settings.vars.cm = confusion_matrix(y_train, y_pred_train)
+    logger.info(f"confusion_matrix:\n{settings.vars.cm}")
 
     X_test = processed["test_dataframe"]
+    settings.vars.X_test = X_test
     dtest = xgb.DMatrix(X_test)
     y_pred_test = bst.predict(dtest).astype(int)
-    y_pred_test = y_pred_test
-    # y_pred_test = y_pred_test + 1
+    y_pred_test = y_pred_test + 1
     settings.vars.y_pred_test = y_pred_test
     sub_df = processed["sub_dataframe"]
     predictions_df = pd.DataFrame(
@@ -197,12 +201,13 @@ def xgb_1(settings, processed):
 
 def run(settings, dataframes):
     assert len(dataframes) > 0
+    # https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.ExtraTreesClassifier.html
     clf = ensemble.ExtraTreesClassifier(
         n_estimators=settings.clf_n_estimators,
         max_depth=settings.max_depth,
         n_jobs=settings.n_jobs,
         random_state=settings.random_state,
-        class_weight={1: 2, 2: 2, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1},
+        class_weight={1: 100, 2: 100, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1},
     )
     # ccp_alpha=0.001 0.74942, ccp_alpha=0.0001 0.80065
     # class_weight={1: 10, 2: 10, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1} 0.83067 -> 0.82956
@@ -213,7 +218,7 @@ def run(settings, dataframes):
             logger.info(f"Loaded model from path: {settings.model_path}")
 
     X_train, y = dataframes[0]
-    logger.info(f"clf.fit(X_train, y), X_train.shape: {X_train.shape}")
+    logger.info(f"run clf.fit(X_train, y), X_train.shape: {X_train.shape}  y.shape: {y.shape}")
     # from forest_cover_type.utils import dotdict
     # s = dotdict(sys.modules["forest_cover_type"].runner.g_settings)
     # s.vars.keys()
@@ -231,7 +236,10 @@ def run(settings, dataframes):
             random_state=settings.random_state,
         )
         X_train_1_2, y_1_2 = dataframes[1]
-        logger.info(f"clf_1_2.fit(X_train_1_2, y_1_2), X_train_1_2.shape: {X_train_1_2.shape}")
+        logger.info(
+            f"clf_1_2.fit(X_train_1_2, y_1_2), X_train_1_2.shape: {X_train_1_2.shape} y_1_2.shape: {y_1_2.shape}"
+        )
+        print("np.unique(y_1_2):", np.unique(y_1_2.values, return_counts=True))
         clf_1_2.fit(X_train_1_2, y_1_2)
         clf_3_4_6 = ensemble.ExtraTreesClassifier(
             n_estimators=settings.booster_n_estimators_2,
@@ -239,7 +247,7 @@ def run(settings, dataframes):
             random_state=settings.random_state,
         )
         X_train_3_4_6, y_3_4_6 = dataframes[2]
-        logger.info(f"clf_3_4_6.fit(X_train_3_4_6, y_1_2), X_train_3_4_6.shape: {X_train_3_4_6.shape}")
+        logger.info(f"clf_3_4_6.fit(X_train_3_4_6, y_3_4_6), X_train_3_4_6.shape: {X_train_3_4_6.shape}")
         clf_3_4_6.fit(X_train_3_4_6, y_3_4_6)
         return {"clf": clf, "clf_1_2": clf_1_2, "clf_3_4_6": clf_3_4_6}
     else:
@@ -253,3 +261,19 @@ def run(settings, dataframes):
                 else:
                     logger.error(f"Error while saving model with path: {settings.model_path}")
         return {"clf": clf}
+
+
+def run_pl(settings, processed):
+    clf = ensemble.ExtraTreesClassifier(
+        n_estimators=settings.clf_n_estimators,
+        max_depth=settings.max_depth,
+        n_jobs=settings.n_jobs,
+        random_state=settings.random_state,
+        class_weight={1: 30, 2: 30, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1},
+    )
+    df_big_train = processed["df_big_train"]
+    X_train = df_big_train.drop(["Cover_Type", "Id"], axis=1)
+    y = df_big_train["Cover_Type"]
+    logger.info(f"clf.fit(X_train, y), X_train.shape: {X_train.shape}")
+    clf.fit(X_train, y)
+    return {"clf": clf}

@@ -16,7 +16,10 @@ class dotdict(dict):
 
 
 def process_settings(settings):
-    # set some needed default values if not exists
+    # set some needed default values if not exist
+    settings.coef_1 = 1.4
+    settings.coef_2 = 3.7
+    settings.coef_3 = 3.8
     settings.mode = settings.get("mode", "default_mode")
     settings.n_splits = settings.get("n_splits", 3)
     settings.feature_engineering = settings.get("feature_engineering", None)
@@ -29,6 +32,7 @@ def process_settings(settings):
     settings.model_path = Path(settings.get("model_path", "data/default_model_path"))
     settings.save_if_not_exists = settings.get("save_if_not_exists", False)
     settings.load_if_exists = settings.get("load_if_exists", False)
+    settings.load_test_csv = settings.get("load_test_csv", True)
     # load from ini if provided
     if settings.train_cfg is not None:
         config = configparser.ConfigParser()
@@ -72,7 +76,7 @@ def process_settings(settings):
                         settings.runs[section][key] = config[section][key]
 
         if settings.mode == "kfold" and len(settings.runs.keys()) == 0:
-            logger.error(f"kfold config must have [run_N] section")
+            logger.error("kfold config must have [run_N] section")
             assert len(settings.runs.keys()) > 0
 
     if settings.use_logfile:
@@ -89,7 +93,7 @@ def process_settings(settings):
 
 def autoreload():
     """This enables auto-reload mode for qtconsole to reload module after the source code was changed.
-    Example: %run -m forest_cover_type.runner -a
+    Example: %run -m forest_cover_type -a
     """
     get_ipython().run_line_magic("load_ext", "autoreload")  # type:ignore
     get_ipython().run_line_magic("autoreload", "2")  # type:ignore
